@@ -30,7 +30,6 @@
         width: 100px;
         border-radius: 50px;
         border-width: 1px;
-
         cursor: pointer;
         color: white;
         border: none;
@@ -66,11 +65,6 @@
       .reset-btn:active {
         opacity: 0.7;
       }
-
-      .header {
-        vertical-align: center;
-        margin-left: 590px;
-      }
       .radio-txt {
         display: inline;
         margin-bottom: 6px;
@@ -86,84 +80,137 @@
       .my-header {
         margin-bottom: 10px;
       }
-      .body {
-        background-color: lightgray;
-        font-family: "Roboto", sans-serif;
-      }
+
       .tick {
         width: 400px;
+      }
+      .details {
+        width: 400px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+      }
+      .body {
+        background-color: lightgray;
       }
     </style>
   </head>
   <body class="body">
-    <h1 class="header">HEADER</h1>
+    <div>
+      <h1 class="header">HEADER</h1>
+    </div>
     <h2 class="my-header">Personal information</h2>
     <form id="myform">
-      <label for="fname"></label>
-      <input class="user-input" type="text" placeholder="First Name" required />
-      <label for="lname"></label>
-      <input class="user-input" type="text" placeholder="Last Name" required />
-      <label for="dob"></label>
-      <input
-        class="user-input"
-        type="text"
-        placeholder="Date of Birth"
-        required
-      />
-      <label for="prog"></label>
-      <input class="user-input" type="text" placeholder="Programme" required />
-      <label for="SIN"></label>
-      <input
-        class="user-input"
-        type="text"
-        placeholder="Student Number"
-        required
-      />
-      <label for="nrc"></label>
-      <input class="user-input" type="text" placeholder="NRC" required />
-      <h3 class="my-header">Gender</h3>
-      <div class="tick">
-        <label>
-          <input type="radio" value="Female" />
-          <span class="radio-txt">Female</span></label
-        >
-        <label>
-          <input type="radio" value="Male" />
-          <span class="radio-txt">Male</span></label
-        >
-      </div>
+      <div class="details">
+        <div class="child">
+          <label for="fname"></label>
+          <input
+            class="user-input"
+            type="text"
+            placeholder="First Name"
+            required
+          />
+        </div>
+        <div class="child">
+          <label for="lname"></label>
+          <input
+            class="user-input"
+            type="text"
+            placeholder="Last Name"
+            required
+          />
+        </div>
+        <div class="child">
+          <label for="dob"></label>
+          <input
+            class="user-input"
+            type="text"
+            placeholder="Date of Birth"
+            required
+          />
+        </div>
+        <div class="child">
+          <label for="prog"></label>
+          <input
+            class="user-input"
+            type="text"
+            placeholder="Programme"
+            required
+          />
+        </div>
+        <div class="child">
+          <label for="SIN"></label>
+          <input
+            class="user-input"
+            type="text"
+            placeholder="Student Number"
+            required
+          />
+        </div>
+        <div class="child">
+          <label for="nrc"></label>
+          <input class="user-input" type="text" placeholder="NRC" required />
+        </div>
+        <h3 class="my-header">Gender</h3>
+        <div class="tick">
+          <div>
+            <label>
+              <input type="radio" name="my-radio" value="Female" />
+              <span class="radio-txt">Female</span></label
+            >
+          </div>
+          <div>
+            <label>
+              <input type="radio" name="my-radio" value="Male" />
+              <span class="radio-txt">Male</span></label
+            >
+          </div>
+        </div>
 
-      <h4 class="my-header">Contact information</h4>
-      <label for="e-mail"></label>
-      <input
-        class="user-input"
-        type="text"
-        placeholder="Email Address"
-        required
-      />
-      <label for="phone"></label>
-      <input
-        class="user-input"
-        type="phoneNo"
-        placeholder="Phone Number"
-        required
-      />
-      <h5 class="my-header">Address</h5>
-      <div class="tick">
-        <label>
-          <input type="radio" value="Campus" /><span class="radio-txt"
-            >Campus</span
-          >
-        </label>
-        <label>
-          <input type="radio" value="Off-Campus" /><span class="radio-txt"
-            >Off-Campus</span
-          >
-        </label>
-      </div>
-      <div class="my-btn">
-        <button class="sub-btn" type="submit">Submit</button>
-        <button class="reset-btn" type="reset">Clear</button>
+        <h4 class="my-header">Contact information</h4>
+        <div class="child">
+          <label for="e-mail"></label>
+          <input
+            class="user-input"
+            type="text"
+            placeholder="Email Address"
+            required
+          />
+        </div>
+        <div class="child">
+          <label for="phone"></label>
+          <input
+            class="user-input"
+            type="phoneNo"
+            placeholder="Phone Number"
+            required
+          />
+        </div>
+
+        <h5 class="my-header">Address</h5>
+        <div class="tick">
+          <div>
+            <label>
+              <input type="radio" name="my-radio-1" value="Campus" /><span
+                class="radio-txt"
+                >Campus</span
+              >
+            </label>
+          </div>
+          <div>
+            <label>
+              <input type="radio" name="my-radio-1" value="Off-Campus" /><span
+                class="radio-txt"
+                >Off-Campus</span
+              >
+            </label>
+          </div>
+        </div>
+        <div class="my-btn">
+          <button class="sub-btn" type="submit">Submit</button>
+          <button class="reset-btn" type="reset">Clear</button>
+        </div>
       </div>
     </form>
   </body>
