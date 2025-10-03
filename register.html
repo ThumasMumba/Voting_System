@@ -12,15 +12,16 @@
     />
     <style>
       .user-input {
-        display: block;
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 389px;
         margin-top: 10px;
         border-radius: 6px;
         border-width: 1px;
         padding-left: 5px;
         padding-top: 10px;
         padding-bottom: 10px;
-        color: rgba(169, 169, 169, 0.912);
-        width: 300px;
+        color: black;
       }
       .sub-btn {
         display: inline-block;
@@ -85,20 +86,22 @@
         width: 400px;
       }
       .details {
-        width: 400px;
+        display: grid;
+        grid-template-rows: 1fr;
       }
       .header {
         display: flex;
         justify-content: space-between;
       }
       .body {
-        background-color: lightgray;
+        background-color: whitesmoke;
       }
     </style>
   </head>
   <body class="body">
     <div>
       <h1 class="header">HEADER</h1>
+      <hr />
     </div>
     <h2 class="my-header">Personal information</h2>
     <form id="myform">
