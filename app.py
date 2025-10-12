@@ -4,11 +4,12 @@
 #redirect: function is used to redirect users to different routes within the application.
 #url_for: This function is used to build URLs for specific functions dynamically.
 #flash: This function is used to send one-time messages to users, often used for notifications
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 
 #importing mysql.connector and Error to connect and handle MySQL database operations
 import mysql.connector
 from mysql.connector import Error 
+from datetime import datetime
 
 #Creating an instance of the flask class to initialize the system. Also a secret string used to encrypt session data and flash messages
 app = Flask(__name__)
@@ -31,7 +32,6 @@ def create_connection():
     except Error as e:
         print(f"Error Connecting to MySQL Database: {e}")
         return None
-    
 
 def init_database():
     """Initialize the database by ensuring all required tables exits.
@@ -78,6 +78,98 @@ def init_database():
 #Initializes database when the flask app starts
 init_database()
 
+# Login Route
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Handles voter login
+    GET: Displays the login form
+    POST: Processes the login form submission
+    """
+
+    #Check if the form submission is a POST Request
+    if request.method == 'POST':
+        #Get login credentials from the form
+        email = request.form['email-address']
+        student_number = request.form['SIN']
+
+        #Check if the fields are not empty
+        if not email or not student_number:
+            flash('Please enter both email student number.', 'error')
+            return redirect(url_for('login'))
+
+        connection = create_connection()
+        if connection is None:
+            flash('Database connection error. Please try again later.', 'error')
+            return redirect(url_for('login'))
+
+        try:
+            cursor = connection.cursor(dictionary=True)
+
+            #SQL Query to verify student credentials
+            login_query = """
+            SELECT id, first_name, last_name, student_number, email, program, has_voted 
+            FROM voters
+            WHERE email = %s AND student_number = %s
+            """
+
+            #Execute the query with email and student_number
+            cursor.execute(login_query, (email, student_number))
+
+            #Get the student record
+            student = cursor.fetchone()
+
+            #Check if student exists
+            if student:
+                session['student_id'] = student['id']
+                session['first_name'] = student['first_name']
+                session['last_name'] = student['last_name']
+                session['student_number'] = student['student_number']
+                session['email'] = student['email']
+                session['program'] = student['program']
+                session['has_voted'] = student['has_voted']
+
+                flash('Login successful! You can now vote.', 'success')
+                return redirect(url_for('student_dasboard'))
+            else:
+                flash('No voter found with that student number.', 'error')
+                return redirect(url_for('login'))
+
+        except Error as e:
+            flash(f'Database error: {str(e)}', 'error')
+            return redirect(url_for('login'))
+        finally:
+            if connection.is_connected():
+                cursor.close()
+                connection.close()
+    #GET request, show the login form
+    return render_template('login.html')
+
+#Student Dashboard Route
+@app.route('/student/dasboard')
+def student_dasboard():
+    """
+    Displays the student voting dashboard
+    Shows student information and voting options
+    """
+
+    if 'student_id' not in session:
+        flash('Please login to access the voting dashboard.', 'error')
+        return redirect(url_for('login'))
+    
+    student_data = {
+        'first_name': session['first_name'],
+        'last_name': session['last_name'],
+        'student_number': session['student_number'],
+        'email': session['email'],
+        'program': session['program'],
+        'has_voted': session['has_voted']
+    }
+
+    return render_template('student_dashboard.html', student=student_data)
+
+
+#Registration Route
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -157,9 +249,10 @@ def register():
     
     # For GET requests, show the registration form
     return render_template('register.html')
-    
-@app.route('/admin/voters')
-def admin_voters():
+
+#Admin Route    
+@app.route('/admin/dashboard')
+def admin_dashboard():
     """
     Displays all registered voters to the admin
     Only accessible by admin users
@@ -179,7 +272,7 @@ def admin_voters():
                         """)
         voters = cursor.fetchall()
 
-        return render_template('admin_voters.html', voters=voters)  
+        return render_template('admin_dashboard.html', voters=voters)  
     except Error as e:
         return f"Database error: {str(e)}"
     finally:
