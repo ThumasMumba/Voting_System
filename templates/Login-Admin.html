@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login Page</title>
+    <style>
+      :root {
+        --primary-color: darkblue;
+        --secondary-color: gold;
+        --background-color: lightgray;
+        --text-color: darkgrey;
+        --success-color: green;
+        --warning-color: red;
+      }
+      .user-input {
+        display: grid;
+        width: 100%;
+        grid-template-columns: 1fr;
+        padding-bottom: 20px;
+        justify-content: center;
+        margin-top: 20px;
+        margin-top: 0px;
+      }
+      .submit-btn {
+        display: flex;
+        padding-bottom: 20px;
+        margin-top: 0px;
+        justify-content: center;
+      }
+      .sub-btn {
+        width: 100%;
+        padding: 12px;
+        justify-content: center;
+        background-color: gold;
+        cursor: pointer;
+        border-width: 1px;
+        border: none;
+        transition: background-color 1s, color 1s;
+      }
+      .sub-btn:hover {
+        background-color: darkgoldenrod;
+        color: white;
+      }
+      .sub-btn:active {
+        background-color: goldenrod;
+        color: white;
+        opacity: 0.8;
+      }
+      .header {
+        display: flex;
+        flex-direction: row;
+        text-align: left;
+        margin-top: 25px;
+      }
+      .input-field {
+        width: 100%;
+        padding: 12px;
+        display: flex;
+        flex-direction: row;
+        color: darkgray;
+        box-sizing: border-box;
+      }
+      .input-field:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 5px var(--primary-color);
+      }
+      .paragraph {
+        font-size: 20px;
+        color: var(--primary-color);
+      }
+      .wrap {
+        margin-top: 100px;
+        margin-bottom: 100px;
+        border: 1px solid gray;
+        border-radius: 10px;
+        background-color: white;
+        padding: 40px 30px;
+        align-content: center;
+        justify-content: center;
+        width: 100%;
+        max-width: 450px;
+        display: grid;
+        grid-template-columns: 1fr;
+        box-sizing: border-box;
+      }
+      .form-paragraph {
+        display: flex;
+        justify-content: center;
+      }
+      .text-paragraph {
+        color: var(--primary-color);
+      }
+      .register-link {
+        font-weight: bold;
+      }
+      .body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: var(--background-color);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+      }
+      .admin {
+        display: grid;
+        justify-content: center;
+        align-items: center;
+        background-color: lightpink;
+        height: 200px;
+        color: var(--text-color);
+      }
+    </style>
+  </head>
+  <body class="body">
+    <div class="wrap">
+      <form class="login-form">
+        <div class="admin">Admin</div>
+        <div class="header">
+          <h1>
+            <span class="paragraph"> Enter your credentials </span>
+          </h1>
+        </div>
+        <div>
+          <div class="user-input">
+            <!-- Email Input -->
+            <input
+              class="input-field"
+              name="email-address"
+              type="text"
+              placeholder="Email Address"
+            />
+          </div>
+          <div class="user-input">
+            <!-- Admin password -->
+            <input
+              class="input-field"
+              name="password"
+              type="password"
+              placeholder="Password"
+            />
+          </div>
+          <div class="submit-btn">
+            <!-- Login Button -->
+            <button class="sub-btn" type="submit">Login</button>
+          </div>
+          <div class="form-paragraph">
+            <p class="text-paragraph">
+              Forgot password?.
+              <a href="Registration-page/register.html">
+                <span class="register-link">Reset password?</span>
+              </a>
+            </p>
+          </div>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>
