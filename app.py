@@ -15,6 +15,9 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'cbu_voting_system'
 
+# Add this configuration to ensure HTML files process Jinja2 syntax
+app.jinja_env.add_extension('jinja2.ext.do')
+
 #This connects to the MySQL database using the provided configuration details
 db_config = {
     'host': 'localhost',
@@ -64,6 +67,37 @@ def init_database():
         )
         """
         cursor.execute(create_table_query)
+
+
+        # SQL query to create admin table if it doesn't exist
+        create_admin_table = """
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(100) UNIQUE NOT NULL,
+            email VARCHAR(100) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            role ENUM('admin') DEFAULT 'admin',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE
+        )
+        """
+
+        cursor.execute(create_admin_table)
+
+        #Insert a default admin user if none exists
+        check_admin_query = "SELECT id FROM admin_users WHERE username = 'admin'"
+        cursor.execute(check_admin_query)
+        existing_admin = cursor.fetchone()
+
+        if not existing_admin:
+            #Default Login Password is 'admin123'
+            insert_admin_query = """
+            INSERT INTO admin_users (username, email, password, role)
+            VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(insert_admin_query, ('admin', 'admin@gmail.com', 'admin123', 'admin'))
+            print("Default Admin user created")
+        
         connection.commit()
         print("✅ Database initialized successfully!")
 
@@ -250,13 +284,18 @@ def register():
     # For GET requests, show the registration form
     return render_template('register.html')
 
-#Admin Route    
+#Admin dashboard Route    
 @app.route('/admin/dashboard')
 def admin_dashboard():
     """
     Displays all registered voters to the admin
     Only accessible by admin users
     """
+
+     # Check if admin is logged in
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page.', 'error')
+        return redirect(url_for('admin_login'))
 
     connection = create_connection()
     if connection is None:
@@ -275,6 +314,102 @@ def admin_dashboard():
         return render_template('admin_dashboard.html', voters=voters)  
     except Error as e:
         return f"Database error: {str(e)}"
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+#Admin login Route
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """
+    Handles admin login
+    GET: Displays the admin login form
+    POST: Processes the admin login form submission
+    """
+
+    # Clear any existing flash messages on GET request
+    if request.method == 'GET':
+        session.pop('_flashes', None)
+    
+    if 'admin_logged_in' in session:
+        return redirect(url_for('admin_dashboard'))
+    
+    if request.method == 'POST':
+        # Get login credentials from the form
+        email = request.form.get('email-address')
+        password = request.form.get('password')
+
+        print(f"Login attempt - Email: {email}, Password: {password}")  # Debug print
+
+        # Check if the fields are not empty
+        if not email or not password:
+            flash('Please enter both email and password.', 'error')
+            return render_template('admin_login.html')
+        
+        connection = create_connection()
+        if connection is None:
+            flash('Database connection error. Please try again later.', 'error')
+            return render_template('admin_login.html')
+        
+        try:
+            cursor = connection.cursor(dictionary=True)
+
+            # SQL Query to verify admin credentials
+            login_query = """
+            SELECT id, username, email, role 
+            FROM admin_users
+            WHERE email = %s AND password = %s AND is_active = TRUE
+            """
+
+            # Execute the query with email and password
+            cursor.execute(login_query, (email, password))
+
+            # Get the admin record
+            admin_user = cursor.fetchone()
+
+            print(f"Admin user found: {admin_user}")  # Debug print
+
+            # Check if admin exists
+            if admin_user:
+                session['admin_logged_in'] = True
+                session['admin_id'] = admin_user['id']
+                session['admin_username'] = admin_user['username']
+                session['admin_email'] = admin_user['email']
+                session['admin_role'] = admin_user['role']
+
+                flash('Admin login successful!', 'success')
+                return redirect(url_for('admin_dashboard'))
+            else:
+                flash('Invalid admin credentials. Please check your email and password.', 'error')
+                return render_template('admin_login.html')
+            
+        except Error as e:
+            print(f"Database error: {e}")  # Debug print
+            flash(f'Database error: {str(e)}', 'error')
+            return render_template('admin_login.html')
+        finally:
+            if connection.is_connected():
+                cursor.close()
+                connection.close()
+
+    # GET request - show the login form
+    return render_template('admin_login.html')
+
+@app.route('/admin/debug')
+def admin_debug():
+    """Debug route to check admin user"""
+    connection = create_connection()
+    if connection is None:
+        return "Database connection failed"
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM admin_users")
+        admin_users = cursor.fetchall()
+        return f"Admin users: {admin_users}"
+    except Error as e:
+        return f"Error: {e}"
     finally:
         if connection.is_connected():
             cursor.close()

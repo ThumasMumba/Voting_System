@@ -1,1 +1,209 @@
-<p>Entered Successful</p>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+    <style>
+      :root {
+        --primary-color: darkblue;
+        --secondary-color: gold;
+        --background-color: rgba(211, 211, 211, 0.411);
+        --text-color: darkgrey;
+        --success-color: green;
+        --warning-color: red;
+      }
+      .grid-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        min-height: 100px;
+        column-gap: 20px;
+        row-gap: 10px;
+        margin-bottom: 20px;
+      }
+      @media (max-width: 600px) {
+        .grid-container {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .grid-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        min-height: 100px;
+        column-gap: 20px;
+        margin-top: 10px;
+        column-gap: 20px;
+        row-gap: 10px;
+      }
+      @media (max-width: 600px) {
+        .grid-box {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .sideBar {
+        display: flex;
+        border-right-style: solid;
+        border-right-width: 1px;
+        border-right-color: rgba(211, 211, 211, 0.411);
+        flex-direction: column;
+        background-color: rgba(211, 211, 211, 0.411);
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        top: 98px;
+        width: 86px;
+        padding-right: 70px;
+        white-space: nowrap; /* Prevents text from wrapping*/
+        /*   overflow-y: auto; vertical-scrolling
+        overflow-x: hidden;*/
+        padding-bottom: 60px;
+        cursor: pointer;
+        row-gap: 0px;
+      }
+      .sideBar hr {
+        background-color: var(--secondary-color);
+        height: 1px;
+        margin: 0px;
+        border: none;
+        width: 150px;
+      }
+      .sideBar span {
+        font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+          sans-serif;
+        margin-top: 20px;
+        margin-left: 1px;
+        border-radius: 6px;
+        padding-left: 5px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      .sideBar span:hover {
+        color: var(--primary-color);
+        font-weight: bold;
+      }
+      .body {
+        padding-top: 20px;
+        padding-bottom: 20px;
+        padding-left: 160px;
+        margin-top: 70px;
+        background-color: var(--background-color);
+      }
+      .flex {
+        background-color: white;
+        padding: 40px 0px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        font-weight: bold;
+        cursor: pointer;
+        justify-content: center;
+        text-align: center;
+        color: var(--primary-color);
+      }
+      .flex:hover {
+        background-color: darkgray;
+        color: white;
+      }
+      .voter-details {
+        margin-top: 80px;
+        display: block;
+        margin-left: 6px;
+      }
+      .voter-details span {
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+      .election-details {
+        display: block;
+        margin-top: 80px;
+        margin-left: 6px;
+      }
+      .election-details span {
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+      #admin-name {
+        color: var(--primary-color);
+        justify-self: end;
+        font-weight: bold;
+        font-size: large;
+      }
+      #quick-actions {
+        color: var(--primary-color);
+        margin-top: 100px;
+        font-weight: bold;
+        display: flex;
+        margin-left: 6px;
+        flex-direction: row;
+      }
+      #side-dash {
+        font-weight: bolder;
+        color: var(--primary-color);
+        /* text-decoration: underline;
+        text-decoration-color: var(--secondary-color);
+        text-decoration-thickness: 2px;
+        */
+      }
+      .h1 {
+        position: fixed;
+        right: 0;
+        top: 0px;
+        left: 0px;
+        margin-top: 0px;
+        background-color: var(--secondary-color);
+        padding-top: 30px;
+        padding-bottom: 30px;
+        padding-left: 15px;
+        color: var(--primary-color);
+        border-bottom-style: solid;
+        border-bottom-color: rgba(211, 211, 211, 0.411);
+        border-bottom-width: 1px;
+      }
+      #horizontal-rule {
+        height: 1px;
+        border: none;
+        background-color: var(--secondary-color);
+      }
+    </style>
+  </head>
+  <body class="body">
+    <h1 class="h1">Admin Dashboard</h1>
+    <div class="sideBar">
+      <span id="side-dash">Dashboard</span>
+      <hr />
+      <span>Manage Election</span>
+      <span>Voter Management</span>
+      <span>Candidates</span>
+      <span>Results & Analysis</span>
+      <span>System Settings</span>
+      <span>Audit Log</span>
+      <span>Help & Support</span>
+    </div>
+    <p id="admin-name">Welcome {Admin Name}</p>
+    <div class="grid-container">
+      <div class="flex">Total Registered Voters</div>
+      <div class="flex">Votes Cast</div>
+      <div class="flex">Pending Count</div>
+      <div class="flex">Active Elections</div>
+    </div>
+    <p id="quick-actions">Quick Actions</p>
+    <hr id="horizontal-rule" />
+    <div class="grid-box">
+      <div class="flex">Create New Election</div>
+      <div class="flex">Manage Voters</div>
+      <div class="flex">View Results</div>
+      <div class="flex">System Settings</div>
+    </div>
+
+    <div class="election-details">
+      <span>Active Elections</span>
+      <hr id="horizontal-rule" />
+      <p>Election Name Type StartDate EndDate Statistics Action</p>
+    </div>
+
+    <div class="voter-details">
+      <span>Resent Voters Registration</span>
+      <hr id="horizontal-rule" />
+      <p>{StNo Name Program Email Registration Date Statistics Action}</p>
+    </div>
+  </body>
+</html>
