@@ -84,13 +84,63 @@ def init_database():
 
         cursor.execute(create_admin_table)
 
-        #Insert a default admin user if none exists
+        #SQL query to create elections table stores election information and status
+        create_elections_table = """
+        CREATE TABLE IF NOT EXISTS elections (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        election_type ENUM('Student Union', 'Faculty', 'Department', 'Class Representative', 'Referendum') NOT NULL,
+        start_date DATETIME NOT NULL,
+        end_date DATETIME NOT NULL,
+        status ENUM('draft', 'upcoming', 'active', 'completed', 'cancelled') DEFAULT 'draft',
+        created_by INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES admin_users(id)
+        )"""
+
+        cursor.execute(create_elections_table)
+
+         # SQL query to create votes table if it doesn't exist
+        create_votes_table = """
+        CREATE TABLE IF NOT EXISTS votes (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            election_id INT,
+            voter_id INT,
+            candidate_id INT,
+            voted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address VARCHAR(45),
+            FOREIGN KEY (election_id) REFERENCES elections(id),
+            FOREIGN KEY (voter_id) REFERENCES voters(id)
+        )
+        """
+        cursor.execute(create_votes_table)
+
+        # SQL query to create candidates table if it doesn't exist
+        create_candidates_table = """
+        CREATE TABLE IF NOT EXISTS candidates (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            election_id INT NOT NULL,
+            student_number VARCHAR(50) NOT NULL,
+            position VARCHAR(100) NOT NULL,
+            manifesto TEXT,
+            photo_url VARCHAR(255),
+            is_approved BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (election_id) REFERENCES elections(id),
+            FOREIGN KEY (student_number) REFERENCES voters(student_number)
+        )
+        """
+        cursor.execute(create_candidates_table)
+
+        # Check if default admin user already exists
         check_admin_query = "SELECT id FROM admin_users WHERE username = 'admin'"
         cursor.execute(check_admin_query)
         existing_admin = cursor.fetchone()
 
+        # Insert default admin user if no admin exists
         if not existing_admin:
-            #Default Login Password is 'admin123'
             insert_admin_query = """
             INSERT INTO admin_users (username, email, password, role)
             VALUES (%s, %s, %s, %s)
@@ -98,13 +148,33 @@ def init_database():
             cursor.execute(insert_admin_query, ('admin', 'admin@gmail.com', 'admin123', 'admin'))
             print("Default Admin user created")
         
+        # Insert sample election data for testing
+        check_elections_query = "SELECT COUNT(*) as count FROM elections"
+        cursor.execute(check_elections_query)
+        election_count = cursor.fetchone()[0]
+
+        if election_count == 0:
+            # Insert sample elections
+            sample_elections = [
+                ('Student Union President 2024', 'Student Union Election for President', 'Student Union', '2024-03-01 08:00:00', '2024-03-05 17:00:00', 'active', 1),
+                ('Faculty Representatives', 'Faculty Representative Elections', 'Faculty', '2024-03-10 08:00:00', '2024-03-15 17:00:00', 'upcoming', 1)
+            ]
+            
+            insert_election_query = """
+            INSERT INTO elections (name, description, election_type, start_date, end_date, status, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            for election in sample_elections:
+                cursor.execute(insert_election_query, election)
+            print("Sample elections created")
+        
         connection.commit()
         print("✅ Database initialized successfully!")
 
     except Error as e:
         print(f"Error Initializing Database: {e}")
     finally:
-        #Ensures we clean up resources by closing the connection
         if connection.is_connected():
             cursor.close()
             connection.close()
@@ -180,7 +250,7 @@ def login():
     return render_template('login.html')
 
 #Student Dashboard Route
-@app.route('/student/dasboard')
+@app.route('/student/dashboard')
 def student_dasboard():
     """
     Displays the student voting dashboard
@@ -292,7 +362,7 @@ def admin_dashboard():
     Only accessible by admin users
     """
 
-     # Check if admin is logged in
+    # Check if admin is logged in
     if 'admin_logged_in' not in session:
         flash('Please login as admin to access this page.', 'error')
         return redirect(url_for('admin_login'))
@@ -303,21 +373,100 @@ def admin_dashboard():
     
     try:
         cursor = connection.cursor(dictionary=True)
-        cursor.execute("""
-                        SELECT id, first_name, last_name, student_number, program,
-                        gender, email, phone_number, address_type, registration_date, has_voted
-                        FROM voters
-                        ORDER BY registration_date DESC
-                        """)
-        voters = cursor.fetchall()
 
-        return render_template('admin_dashboard.html', voters=voters)  
+        # Get total number of registered voters
+        cursor.execute("SELECT COUNT(*) as count FROM voters")
+        total_voters_result = cursor.fetchone()
+        total_voters = total_voters_result['count'] if total_voters_result else 0 
+
+        # Get number of voters who have voted
+        cursor.execute("SELECT COUNT(*) as count FROM voters WHERE has_voted = TRUE")
+        voted_count_result = cursor.fetchone()
+        voted_count = voted_count_result['count'] if voted_count_result else 0
+
+        # Get number of pending votes
+        pending_count = total_voters - voted_count
+
+        # Get number of active elections
+        cursor.execute("SELECT COUNT(*) as count FROM elections WHERE status='active'")
+        active_elections_result = cursor.fetchone()
+        active_elections = active_elections_result['count'] if active_elections_result else 0
+
+        # Get recent voter registration
+        cursor.execute("""
+        SELECT first_name, last_name, student_number, program, email,
+                       registration_date, has_voted
+        FROM voters
+        ORDER BY registration_date DESC
+        LIMIT 5
+        """)
+        recent_voters = cursor.fetchall()
+
+        # Get active elections with vote counts
+        elections = []
+        try:
+            # Check if the votes table exists
+            cursor.execute("SHOW TABLES LIKE 'votes'")
+            votes_table_exists = cursor.fetchone()
+
+            if votes_table_exists:
+                cursor.execute("""
+                SELECT e.*, COUNT(v.id) as votes_cast
+                FROM elections e
+                LEFT JOIN votes v ON e.id = v.election_id
+                WHERE e.status = 'active'
+                GROUP BY e.id
+                ORDER BY e.start_date DESC
+                LIMIT 3
+                """)
+            else:
+                cursor.execute("""
+                SELECT e.*, 0 as votes_cast
+                FROM elections e
+                WHERE e.status = 'active'
+                ORDER BY e.start_date DESC
+                LIMIT 3
+                """)
+            elections = cursor.fetchall()  # Fixed typo: was 'featchall'
+
+        except Error as e:
+            print(f"Error fetching elections: {e}")
+            # If there's an error, just get basic election data
+            cursor.execute("""
+            SELECT e.*, 0 as votes_cast
+            FROM elections e
+            WHERE e.status = 'active'
+            ORDER BY e.start_date DESC
+            LIMIT 3
+            """)
+            elections = cursor.fetchall()
+
+        # Statistics 
+        stats = {
+            'total_voters': total_voters,
+            'voted_count': voted_count,
+            'pending_count': pending_count,
+            'active_elections': active_elections
+        }
+
+        return render_template('admin_dashboard.html', 
+                               stats=stats,
+                               recent_voters=recent_voters,
+                               elections=elections)  
+        
     except Error as e:
-        return f"Database error: {str(e)}"
+        flash(f'Database error: {str(e)}', 'error')
+        print(f"Database error in admin_dashboard: {e}")
+        # Return empty data if database error occurs
+        return render_template('admin_dashboard.html',
+                             stats={'total_voters': 0, 'voted_count': 0, 'pending_count': 0, 'active_elections': 0},
+                             recent_voters=[],
+                             elections=[])
     finally:
         if connection.is_connected():
             cursor.close()
             connection.close()
+
 
 #Admin login Route
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -396,6 +545,22 @@ def admin_login():
     # GET request - show the login form
     return render_template('admin_login.html')
 
+#logout route
+@app.route('/admin/logout')
+def admin_logout():
+    """
+    Handles admin logout and redirects user to admin login page
+    """
+    # Remove all admin-related session data
+    session.pop('admin_logged_in', None)
+    session.pop('admin_id', None)
+    session.pop('admin_username', None)
+    session.pop('admin_email', None)
+    session.pop('admin_role', None)
+    
+    flash('You have been logged out successfully.', 'success')
+    return redirect(url_for('admin_login'))
+
 @app.route('/admin/debug')
 def admin_debug():
     """Debug route to check admin user"""
@@ -414,6 +579,37 @@ def admin_debug():
         if connection.is_connected():
             cursor.close()
             connection.close()
+
+#Create Election Route
+@app.route('/admin/elections/create')
+def create_election():
+    """Placeholder for create election page"""
+    flash('Create election feature coming soon!', 'info')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/voters')
+def manage_voters():
+    """Placeholder for manage voters page"""
+    flash('Voter management feature coming soon!', 'info')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/results')
+def view_results():
+    """Placeholder for view results page"""
+    flash('Results feature coming soon!', 'info')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/settings')
+def system_settings():
+    """Placeholder for system settings page"""
+    flash('System settings feature coming soon!', 'info')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/elections')
+def manage_elections():
+    """Placeholder for manage elections page"""
+    flash('Election management feature coming soon!', 'info')
+    return redirect(url_for('admin_dashboard'))
 
 if  __name__ == '__main__':
     app.run(debug=True)
