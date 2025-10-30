@@ -94,6 +94,17 @@
         margin: 10px 20px;
         border: none;
       }
+      .sideBar a {
+        display: block;
+        font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+        padding: 15px 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+        text-decoration: none;
+        color: inherit;
+      }
+
       .sideBar span {
         display: block;
         font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
@@ -101,7 +112,6 @@
         cursor: pointer;
         transition: all 0.3s ease;
         border-left: 4px solid transparent;
-
       }
       #side-dash {
             font-weight: bold;
@@ -377,7 +387,7 @@
          <nav class="sideBar">
             <span id="side-dash">📊 Dashboard</span>
             <hr />
-            <span>🗳️ Manage Elections</span>
+            <a href="{{ url_for('manage_elections') }}">🗳️ Manage Elections</a>
             <span>👥 Voter Management</span>
             <span>🏆 Candidates</span>
             <span>📈 Results & Analysis</span>
@@ -392,7 +402,7 @@
               {% if messages %}
                   {% for category, message in messages %}
                     <div class="alert alert-{{category}}">
-                        {{messages}}
+                        {{ message }}
                     </div>
                   {% endfor %}
                 {% endif %}
@@ -419,7 +429,7 @@
 </div>
 
           <div class="quick-actions">
-            <div class="section-title">Qiuck Actions</div>
+            <div class="section-title">Quick Actions</div>
             <hr class="horizontal-rule"/>
             <div class="actions-grid">
               <div class="action-card" onclick="location.href='{{ url_for('create_election') }}'">
@@ -530,10 +540,35 @@
       </div>
 
       <script>
-        document.querySelectorAll('.sideBar span').forEach(item=>{
+        document.addEventListener('DOMContentLoaded', function() {
+          const currentPath = window.location.pathname;
+          const sidebarItems = document.querySelectorAll('.sideBar a, .sideBar span');
+          
+          sidebarItems.forEach(item => {
+            if (item.getAttribute('href') === currentPath || 
+                (currentPath === '/admin/dashboard' && item.textContent.includes('Dashboard'))) {
+              item.style.fontWeight = 'bold';
+              item.style.color = 'var(--primary-color)';
+              item.style.borderLeftColor = 'var(--secondary-color)';
+              item.style.backgroundColor = 'rgba(211, 211, 211, 0.2)';
+            }
+          });
+        });
+
+        document.querySelectorAll('.sideBar a, .sideBar span').forEach(item=>{
           item.addEventListener('click', function(){
-            document.querySelectorAll('.sideBar span').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.sideBar a, .sideBar span').forEach(i => {
+              i.classList.remove('active');
+              i.style.fontWeight = 'normal';
+              i.style.color = '';
+              i.style.borderLeftColor = '';
+              i.style.backgroundColor = '';
+            });
             this.classList.add('active');
+            this.style.fontWeight = 'bold';
+            this.style.color = 'var(--primary-color)';
+            this.style.borderLeftColor = 'var(--secondary-color)';
+            this.style.backgroundColor = 'rgba(211, 211, 211, 0.2)';
           });
         });
 
@@ -551,5 +586,3 @@
 
     
     
-  </body>
-</html>

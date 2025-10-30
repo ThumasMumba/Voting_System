@@ -56,6 +56,7 @@ def init_database():
             last_name VARCHAR(100) NOT NULL,
             date_of_birth VARCHAR(20) NOT NULL,
             program VARCHAR(100) NOT NULL,
+            academic_year VARCHAR(20) NOT NULL,
             student_number VARCHAR(50) UNIQUE NOT NULL,
             nrc VARCHAR(50) NOT NULL,
             gender ENUM('Male', 'Female') NOT NULL,
@@ -86,11 +87,14 @@ def init_database():
 
         #SQL query to create elections table stores election information and status
         create_elections_table = """
-        CREATE TABLE IF NOT EXISTS elections (
+    CREATE TABLE IF NOT EXISTS elections (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         description TEXT,
-        election_type ENUM('Student Union', 'Faculty', 'Department', 'Class Representative', 'Referendum') NOT NULL,
+        election_type ENUM('Student Union', 'Class Representative', 'Association') NOT NULL,
+        school VARCHAR(100),
+        program VARCHAR(100),
+        academic_year VARCHAR(20),
         start_date DATETIME NOT NULL,
         end_date DATETIME NOT NULL,
         status ENUM('draft', 'upcoming', 'active', 'completed', 'cancelled') DEFAULT 'draft',
@@ -116,6 +120,19 @@ def init_database():
         )
         """
         cursor.execute(create_votes_table)
+
+        # SQL query to create positions table if it doesn't exist
+        create_positions_table = """
+        CREATE TABLE IF NOT EXISTS positions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            election_id INT NOT NULL,
+            position_name VARCHAR(100) NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (election_id) REFERENCES elections(id)
+        )
+        """ 
+        cursor.execute(create_positions_table)
 
         # SQL query to create candidates table if it doesn't exist
         create_candidates_table = """
@@ -156,18 +173,35 @@ def init_database():
         if election_count == 0:
             # Insert sample elections
             sample_elections = [
-                ('Student Union President 2024', 'Student Union Election for President', 'Student Union', '2024-03-01 08:00:00', '2024-03-05 17:00:00', 'active', 1),
-                ('Faculty Representatives', 'Faculty Representative Elections', 'Faculty', '2024-03-10 08:00:00', '2024-03-15 17:00:00', 'upcoming', 1)
+                ('Student Union President 2024', 'Student Union Election for President', 'Student Union', 'CBU', 'All Programs', 'All Years', '2024-03-01 08:00:00', '2024-03-05 17:00:00', 'active', 1),
+                ('Class Representatives 2024', 'Class Representative Elections', 'Class Representative', 'School of Engineering', 'Computer Science', 'Second Year', '2024-03-10 08:00:00', '2024-03-15 17:00:00', 'upcoming', 1)
             ]
             
             insert_election_query = """
-            INSERT INTO elections (name, description, election_type, start_date, end_date, status, created_by)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO elections (name, description, election_type, school, program, academic_year, start_date, end_date, status, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             for election in sample_elections:
                 cursor.execute(insert_election_query, election)
-            print("Sample elections created")
+                election_id = cursor.lastrowid
+                
+                # Create default positions for sample elections
+                election_type = election[2]  # election_type is at index 2
+                if election_type == 'Student Union':
+                    default_positions = ['President', 'Academics Minister', 'Prime Minister']
+                    for position_name in default_positions:
+                        position_query = "INSERT INTO positions (election_id, position_name) VALUES (%s, %s)"
+                        cursor.execute(position_query, (election_id, position_name))
+                        print(f"Created position '{position_name}' for Student Union election")
+                
+                elif election_type == 'Class Representative':
+                    default_positions = ['Male Class Representative', 'Female Class Representative']
+                    for position_name in default_positions:
+                        position_query = "INSERT INTO positions (election_id, position_name) VALUES (%s, %s)"
+                        cursor.execute(position_query, (election_id, position_name))
+                        print(f"Created position '{position_name}' for Class Representative election")
+            
         
         connection.commit()
         print("✅ Database initialized successfully!")
@@ -290,6 +324,7 @@ def register():
         date_of_birth = request.form['date_of_birth']
         program = request.form['program']
         student_number = request.form['student_number']
+        academic_year = request.form['academic_year']
         nrc = request.form['nrc']
         gender = request.form['gender']
         email = request.form['email']
@@ -325,17 +360,16 @@ def register():
             
             #SQL Query  to insert new voter into the database
             insert_query = """
-            INSERT INTO voters
-            (first_name, last_name, date_of_birth, program, student_number,
-            nrc, gender, email, phone_number, address_type) VALUES
-            (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
+                INSERT INTO voters
+                (first_name, last_name, date_of_birth, program, academic_year, student_number,
+                nrc, gender, email, phone_number, address_type) VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
 
             #Excetion of the insert query
             cursor.execute(insert_query, 
-                           (first_name, last_name, date_of_birth, program,
-                            student_number, nrc, gender, email, phone_number,
-                            address_type))
+               (first_name, last_name, date_of_birth, program, academic_year,
+                student_number, nrc, gender, email, phone_number, address_type))
             
             connection.commit()
 
@@ -579,37 +613,394 @@ def admin_debug():
         if connection.is_connected():
             cursor.close()
             connection.close()
-
-#Create Election Route
-@app.route('/admin/elections/create')
-def create_election():
-    """Placeholder for create election page"""
-    flash('Create election feature coming soon!', 'info')
     return redirect(url_for('admin_dashboard'))
 
+#Voters
 @app.route('/admin/voters')
 def manage_voters():
     """Placeholder for manage voters page"""
     flash('Voter management feature coming soon!', 'info')
     return redirect(url_for('admin_dashboard'))
 
+#Election Results
 @app.route('/admin/results')
 def view_results():
     """Placeholder for view results page"""
     flash('Results feature coming soon!', 'info')
     return redirect(url_for('admin_dashboard'))
 
+#Admin Settings
 @app.route('/admin/settings')
 def system_settings():
     """Placeholder for system settings page"""
     flash('System settings feature coming soon!', 'info')
     return redirect(url_for('admin_dashboard'))
 
+#Election Management
 @app.route('/admin/elections')
 def manage_elections():
-    """Placeholder for manage elections page"""
-    flash('Election management feature coming soon!', 'info')
-    return redirect(url_for('admin_dashboard'))
+    """
+    Display all elections with filtering and search apabilities
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page.', 'error')
+        return redirect(url_for('admin_login'))
+    
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        #Get filter parameters
+        status_filter = request.args.get('status', 'all')
+        election_type = request.args.get('type', 'all')
+        search_query = request.args.get('search', '')
+
+        #Base Query
+        query = """
+        SELECT e.*,
+                COUNT(DISTINCT c.id) as candidate_count,
+                COUNT(DISTINCT v.id) as vote_count,
+                a.username as created_by_name
+        FROM elections e
+        LEFT JOIN candidates c ON e.id = c.election_id
+        LEFT JOIN votes v ON e.id = v.election_id
+        LEFT JOIN admin_users a ON e.created_by = a.id
+        """
+
+        #Builds Where conditions based on filters
+        conditions = []
+        params = []
+
+        #Status Filter condition
+        if status_filter != 'all':
+            conditions.append("e.status = %s")
+            params.append(status_filter)
+
+        #Election type filter condition
+        if election_type != 'all':
+            conditions.append("e.election_type = %s")
+            params.append(election_type)
+
+        #Search conditions 
+        if search_query:
+            conditions.append("(e.name LIKE %s OR e.description LIKE %s)")
+            params.extend([f'%{search_query}%', f'%{search_query}%'])
+
+        #Where clause if any conditions are there
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)   
+        query += " GROUP BY e.id ORDER BY e.created_at DESC"    
+        cursor.execute(query, tuple(params))
+        elections = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_elections,
+                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_elections,
+                SUM(CASE WHEN status = 'upcoming' THEN 1 ELSE 0 END) as upcoming_elections,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_elections
+                FROM elections
+        """)
+
+        stats = cursor.fetchone()
+
+        return render_template('manage_elections.html', 
+                               elections=elections,
+                               stats=stats,
+                               current_status=status_filter,
+                               current_type=election_type,
+                               search_query=search_query)
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+#Create Elections
+@app.route('/admin/elections/create', methods=['GET', 'POST'])
+def create_election():
+    """
+    Create a new election
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    # Handling form submission
+    if request.method == 'POST':
+        name = request.form['name']
+        description = request.form['description']
+        election_type = request.form['election_type']
+        school = request.form.get('school', '')
+        program = request.form.get('program', '')
+        academic_year = request.form.get('academic_year', '')
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        status = request.form['status']
+
+        # Validate required fields
+        if not all([name, election_type, start_date, end_date]):
+            flash('Please fill in all required fields.', 'error')
+            return render_template('create_election.html')
+
+        connection = create_connection()
+        if connection is None:
+            flash('Database connection error. Please try again later.', 'error')
+            return redirect(url_for('manage_elections'))
+
+        try:
+            cursor = connection.cursor()
+
+            # SQL Query to insert new election
+            insert_query = """
+            INSERT INTO elections
+            (name, description, election_type, school, program, academic_year, start_date, end_date, status, created_by)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+
+            cursor.execute(insert_query,
+                           (name, description, election_type, school, program, academic_year,
+                            start_date, end_date, status, session['admin_id']))
+            
+            # Get the newly created election ID
+            election_id = cursor.lastrowid
+            
+            # Create default positions based on election type
+            if election_type == 'Student Union':
+                default_positions = ['President', 'Academics Minister', 'Prime Minister']
+            elif election_type == 'Class Representative':
+                default_positions = ['Male Class Representative', 'Female Class Representative']
+            else:  # Association elections - no default positions
+                default_positions = []
+            
+            # Insert default positions
+            for position_name in default_positions:
+                position_query = "INSERT INTO positions (election_id, position_name) VALUES (%s, %s)"
+                cursor.execute(position_query, (election_id, position_name))
+
+            connection.commit()
+
+            flash('Election created successfully with default positions!', 'success')
+            return redirect(url_for('manage_elections'))
+
+        except Error as e:
+            flash(f'Database error: {str(e)}', 'error')
+            return render_template('create_election.html')
+        finally:
+            if connection.is_connected():
+                cursor.close()
+                connection.close()
+
+    # GET request - show the create election form
+    return render_template('create_election.html')
+
+#Editing an election
+@app.route('/admin/elections/<int:election_id>/edit', methods=['GET', 'POST'])
+def edit_election(election_id):
+    """
+    Edit an existing election
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_elections'))
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+
+        #Handle form submission
+        if request.method == 'POST':
+            name = request.form['name']
+            description = request.form['description']
+            election_type = request.form['election_type']
+            start_date = request.form['start_date']
+            end_date = request.form['end_date']
+            status = request.form['status']
+
+            #Validate required fields
+            if not all([name, election_type, start_date, end_date]):
+                flash('Please fill in all required fields.', 'error')
+                return render_template('edit_election.html', election=election)
+
+            #SQL Query to update election
+            update_query = """
+            UPDATE elections
+            SET name = %s, description = %s, election_type = %s,
+                start_date = %s, end_date = %s, status = %s
+            WHERE id = %s
+            """
+            cursor.execute(update_query,
+                           (name, description, election_type,
+                            start_date, end_date, status, election_id))
+            connection.commit()
+       # Fetchs existing election data
+        cursor.execute("SELECT * FROM elections WHERE id = %s", (election_id,))
+        election = cursor.fetchone()
+
+   #Check if an election exists
+        if not election:
+            flash('Election not found.', 'error')
+            return redirect(url_for('manage_elections'))
+
+    #GET request - show the edit election form with existing data
+            return render_template('edit_election.html', election=election)
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+        return redirect(url_for('manage_elections'))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+#Delete election route
+@app.route('/admin/elections/<int:election_id>/delete', methods=['POST'])
+def delete_election(election_id):
+    """
+    Delete an election
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_elections'))
+
+    try:
+        cursor = connection.cursor()
+
+        #Check if election exists
+        cursor.execute("SELECT id FROM elections WHERE id = %s", (election_id,))
+        election = cursor.fetchone()
+
+        if not election:
+            flash('Election not found.', 'error')
+            return redirect(url_for('manage_elections'))
+
+        #SQL Query to delete election
+        delete_query = "DELETE FROM elections WHERE id = %s"
+        cursor.execute(delete_query, (election_id,))
+        connection.commit()
+
+        flash('Election deleted successfully!', 'success')
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+    return redirect(url_for('manage_elections'))
+
+    #Toggle status
+@app.route('/admin/elections/<int:election_id>/toggle_status', methods=['POST'])
+def toggle_election_status(election_id):
+    """
+    Toggle the status of an election between active and inactive
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_elections'))
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        #Check if election exists
+        cursor.execute("SELECT status FROM elections WHERE id = %s", (election_id,))
+        election = cursor.fetchone()
+
+        if not election:
+            flash('Election not found.', 'error')
+            return redirect(url_for('manage_elections'))
+
+        #Determine new status
+        new_status = 'draft' if election['status'] == 'active' else 'active'
+
+        #SQL Query to update election status
+        update_query = "UPDATE elections SET status = %s WHERE id = %s"
+        cursor.execute(update_query, (new_status, election_id))
+        connection.commit()
+
+        flash(f'Election status updated to {new_status}.', 'success')
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+    return redirect(url_for('manage_elections'))
+
+#Manage Positions Route
+@app.route('/admin/elections/<int:election_id>/positions', methods=['GET', 'POST'])
+def manage_positions(election_id):
+    """
+    Manage positions for an election
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error', 'error')
+        return redirect(url_for('manage_elections'))
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        # Get election details
+        cursor.execute("SELECT * FROM elections WHERE id = %s", (election_id,))
+        election = cursor.fetchone()
+
+        if not election:
+            flash('Election not found', 'error')
+            return redirect(url_for('manage_elections'))
+
+        if request.method == 'POST':
+            position_name = request.form['position_name']
+            
+            if position_name:
+                insert_query = "INSERT INTO positions (election_id, position_name) VALUES (%s, %s)"
+                cursor.execute(insert_query, (election_id, position_name))
+                connection.commit()
+                flash('Position added successfully!', 'success')
+
+        # Get existing positions
+        cursor.execute("SELECT * FROM positions WHERE election_id = %s ORDER BY id", (election_id,))
+        positions = cursor.fetchall()
+
+        return render_template('manage_positions.html', 
+                             election=election, 
+                             positions=positions)
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+        return redirect(url_for('manage_elections'))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
 
 if  __name__ == '__main__':
     app.run(debug=True)
