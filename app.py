@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 
 #importing mysql.connector and Error to connect and handle MySQL database operations
 import mysql.connector
+import json
 from mysql.connector import Error 
 from datetime import datetime
 
@@ -69,7 +70,6 @@ def init_database():
         """
         cursor.execute(create_table_query)
 
-
         # SQL query to create admin table if it doesn't exist
         create_admin_table = """
         CREATE TABLE IF NOT EXISTS admin_users (
@@ -82,31 +82,29 @@ def init_database():
             is_active BOOLEAN DEFAULT TRUE
         )
         """
-
         cursor.execute(create_admin_table)
 
         #SQL query to create elections table stores election information and status
         create_elections_table = """
-    CREATE TABLE IF NOT EXISTS elections (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        election_type ENUM('Student Union', 'Class Representative', 'Association') NOT NULL,
-        school VARCHAR(100),
-        program VARCHAR(100),
-        academic_year VARCHAR(20),
-        start_date DATETIME NOT NULL,
-        end_date DATETIME NOT NULL,
-        status ENUM('draft', 'upcoming', 'active', 'completed', 'cancelled') DEFAULT 'draft',
-        created_by INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (created_by) REFERENCES admin_users(id)
+        CREATE TABLE IF NOT EXISTS elections (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            election_type ENUM('Student Union', 'Class Representative', 'Association') NOT NULL,
+            school VARCHAR(100),
+            program TEXT,
+            academic_year TEXT,
+            start_date DATETIME NOT NULL,
+            end_date DATETIME NOT NULL,
+            status ENUM('draft', 'upcoming', 'active', 'completed', 'cancelled') DEFAULT 'draft',
+            created_by INT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES admin_users(id)
         )"""
-
         cursor.execute(create_elections_table)
 
-         # SQL query to create votes table if it doesn't exist
+        # SQL query to create votes table if it doesn't exist
         create_votes_table = """
         CREATE TABLE IF NOT EXISTS votes (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -134,6 +132,19 @@ def init_database():
         """ 
         cursor.execute(create_positions_table)
 
+        # SQL query to create schools table if it doesn't exist
+        create_schools_table = """
+        CREATE TABLE IF NOT EXISTS schools (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL UNIQUE,
+            code VARCHAR(50) NOT NULL UNIQUE,
+            description TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        cursor.execute(create_schools_table)
+
         # SQL query to create candidates table if it doesn't exist
         create_candidates_table = """
         CREATE TABLE IF NOT EXISTS candidates (
@@ -150,6 +161,98 @@ def init_database():
         )
         """
         cursor.execute(create_candidates_table)
+
+        # FIXED: SQL Query that creates the programs table - removed extra comma
+        create_programs_table = """
+        CREATE TABLE IF NOT EXISTS programs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            school_id INT,
+            name VARCHAR(255) NOT NULL,
+            code VARCHAR(50) NOT NULL UNIQUE,
+            duration_years INT DEFAULT 4,
+            description TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (school_id) REFERENCES schools(id)
+        )
+        """
+        cursor.execute(create_programs_table)
+
+        # SQL query to create academic_years table if it doesn't exist
+        create_academic_years_table = """
+        CREATE TABLE IF NOT EXISTS academic_years (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            code VARCHAR(50) NOT NULL UNIQUE,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+        cursor.execute(create_academic_years_table)
+
+        # Insert default schools if they dont exist
+        check_schools_query = "SELECT COUNT(*) as count FROM schools"
+        cursor.execute(check_schools_query)
+        schools_count = cursor.fetchone()[0]
+
+        if schools_count == 0:
+            default_schools = [
+                ('School of Mathematics and Natural Sciences', 'SMNS', 'School of Mathematics and Natural Sciences'),
+                ('School of Information Communications Technology', 'SICT', 'School of Information Communication Technology'),
+                ('School of Business', 'SB', 'School of Business'),
+                ('School of Medicine', 'SOM', 'School of Medicine'),
+                ('School of Humanities and Social Sciences', 'SHSS', 'School of Humanities and Social Sciences')
+            ]
+            
+            insert_school_query = "INSERT INTO schools (name, code, description) VALUES (%s, %s, %s)"
+            for school in default_schools:
+                cursor.execute(insert_school_query, school)
+
+        # Insert default programs if they don't exist
+        check_programs_query = "SELECT COUNT(*) as count FROM programs"
+        cursor.execute(check_programs_query)
+        programs_count = cursor.fetchone()[0]
+
+        if programs_count == 0:
+            # Get school IDs
+            cursor.execute("SELECT id, name FROM schools")
+            schools = cursor.fetchall()
+            school_map = {school[1]: school[0] for school in schools}
+            
+            default_programs = [
+                ('Computer Science', 'CS', school_map['School of Information Communications Technology'], 4),
+                ('Computer Engineering', 'CE', school_map['School of Information Communications Technology'], 5),
+                ('Software Engineering', 'SE', school_map['School of Information Communications Technology'], 4),
+                ('Information Technology', 'IT', school_map['School of Information Communications Technology'], 4),
+                ('Data Science', 'DS', school_map['School of Mathematics and Natural Sciences'], 4),
+                ('Bioinformatics', 'BIO', school_map['School of Mathematics and Natural Sciences'], 4),
+                ('Business Administration', 'BA', school_map['School of Business'], 4),
+                ('Medicine', 'MED', school_map['School of Medicine'], 6),
+                ('Psychology', 'PSY', school_map['School of Humanities and Social Sciences'], 4)
+            ]
+            
+            insert_program_query = "INSERT INTO programs (name, code, school_id, duration_years) VALUES (%s, %s, %s, %s)"
+            for program in default_programs:
+                cursor.execute(insert_program_query, program)
+
+        # Insert default academic years if they don't exist
+        check_academic_years_query = "SELECT COUNT(*) as count FROM academic_years"
+        cursor.execute(check_academic_years_query)
+        academic_years_count = cursor.fetchone()[0]
+
+        if academic_years_count == 0:
+            default_academic_years = [
+                ('First Year', 'Y1'),
+                ('Second Year', 'Y2'),
+                ('Third Year', 'Y3'),
+                ('Fourth Year', 'Y4'),
+                ('Fifth Year', 'Y5'),
+                ('Sixth Year', 'Y6')
+            ]
+            
+            insert_academic_year_query = "INSERT INTO academic_years (name, code) VALUES (%s, %s)"
+            for academic_year in default_academic_years:
+                cursor.execute(insert_academic_year_query, academic_year)
 
         # Check if default admin user already exists
         check_admin_query = "SELECT id FROM admin_users WHERE username = 'admin'"
@@ -173,8 +276,8 @@ def init_database():
         if election_count == 0:
             # Insert sample elections
             sample_elections = [
-                ('Student Union President 2024', 'Student Union Election for President', 'Student Union', 'CBU', 'All Programs', 'All Years', '2024-03-01 08:00:00', '2024-03-05 17:00:00', 'active', 1),
-                ('Class Representatives 2024', 'Class Representative Elections', 'Class Representative', 'School of Engineering', 'Computer Science', 'Second Year', '2024-03-10 08:00:00', '2024-03-15 17:00:00', 'upcoming', 1)
+                ('Student Union President 2024', 'Student Union Election for President', 'Student Union', 'CBU', '["all"]', '["all"]', '2024-03-01 08:00:00', '2024-03-05 17:00:00', 'active', 1),
+                ('Class Representatives 2024', 'Class Representative Elections', 'Class Representative', 'School of Engineering', '["1"]', '["2"]', '2024-03-10 08:00:00', '2024-03-15 17:00:00', 'upcoming', 1)
             ]
             
             insert_election_query = """
@@ -202,19 +305,97 @@ def init_database():
                         cursor.execute(position_query, (election_id, position_name))
                         print(f"Created position '{position_name}' for Class Representative election")
             
-        
         connection.commit()
         print("✅ Database initialized successfully!")
 
     except Error as e:
         print(f"Error Initializing Database: {e}")
+        connection.rollback()
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+#Initializes database when the flask app starts
+init_database()
+
+# helper functions to fetch data from database
+def get_schools_from_db():
+    """Fetch all active schools from the database"""
+    connection = create_connection()
+    if connection is None:
+        print("❌ Database connection failed in get_schools_from_db")
+        return []
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, name, code FROM schools WHERE is_active = TRUE ORDER BY name")
+        schools = cursor.fetchall()
+        print(f"✅ Found {len(schools)} schools: {schools}")
+        return schools
+    except Error as e:
+        print(f"Error fetching schools: {e}")
+        return []
     finally:
         if connection.is_connected():
             cursor.close()
             connection.close()
 
-#Initializes database when the flask app starts
-init_database()
+def get_programs_from_db(school_id=None):
+    """Fetch programs from the database, optionally filtered by school"""
+    connection = create_connection()
+    if connection is None:
+        print("❌ Database connection failed in get_programs_from_db")
+        return []
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        if school_id:
+            cursor.execute("""
+                SELECT p.id, p.name, p.code, s.name as school_name 
+                FROM programs p 
+                JOIN schools s ON p.school_id = s.id 
+                WHERE p.is_active = TRUE AND p.school_id = %s 
+                ORDER BY p.name
+            """, (school_id,))
+        else:
+            cursor.execute("""
+                SELECT p.id, p.name, p.code, s.name as school_name 
+                FROM programs p 
+                JOIN schools s ON p.school_id = s.id 
+                WHERE p.is_active = TRUE 
+                ORDER BY s.name, p.name
+            """)
+        programs = cursor.fetchall()
+        print(f"✅ Found {len(programs)} programs: {programs}")
+        return programs
+    except Error as e:
+        print(f"Error fetching programs: {e}")
+        return []
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+def get_academic_years_from_db():
+    """Fetch all active academic years from the database"""
+    connection = create_connection()
+    if connection is None:
+        print("❌ Database connection failed in get_academic_years_from_db")
+        return []
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, name, code FROM academic_years WHERE is_active = TRUE ORDER BY name")
+        academic_years = cursor.fetchall()
+        print(f"✅ Found {len(academic_years)} academic years: {academic_years}")
+        return academic_years
+    except Error as e:
+        print(f"Error fetching academic years: {e}")
+        return []
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
 
 # Login Route
 @app.route('/login', methods=['GET', 'POST'])
@@ -732,15 +913,35 @@ def create_election():
     if 'admin_logged_in' not in session:
         flash('Please login as admin to access this page', 'error')
         return redirect(url_for('admin_login'))
+    
+    # Fetch data from database for the form
+    schools = get_schools_from_db()
+    programs = get_programs_from_db()
+    academic_years = get_academic_years_from_db()
 
     # Handling form submission
     if request.method == 'POST':
         name = request.form['name']
         description = request.form['description']
         election_type = request.form['election_type']
-        school = request.form.get('school', '')
-        program = request.form.get('program', '')
-        academic_year = request.form.get('academic_year', '')
+        school_id = request.form.get('school', '')
+
+        
+        program_selections = request.form.getlist('program')
+        if 'all' in program_selections:
+            program = 'all'
+        else:
+            program = json.dumps(program_selections) if program_selections else ''
+
+
+        academic_year_selections = request.form.getlist('academic_year')
+        if 'all' in academic_year_selections:
+            academic_year = 'all'
+        else:
+            # Store selected academic year IDs as JSON string
+            academic_year = json.dumps(academic_year_selections) if academic_year_selections else ''
+
+
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         status = request.form['status']
@@ -748,7 +949,18 @@ def create_election():
         # Validate required fields
         if not all([name, election_type, start_date, end_date]):
             flash('Please fill in all required fields.', 'error')
-            return render_template('create_election.html')
+            return render_template('create_election.html',
+                                   schools=schools,
+                                   programs=programs,
+                                   academic_years=academic_years)
+        
+        # Validate date logic
+        if start_date >= end_date:
+            flash('End date must be after start date.', 'error')
+            return render_template('create_election.html', 
+                                 schools=schools, 
+                                 programs=programs, 
+                                 academic_years=academic_years)
 
         connection = create_connection()
         if connection is None:
@@ -758,6 +970,14 @@ def create_election():
         try:
             cursor = connection.cursor()
 
+            # Get school name if school_id is provided
+            school_name = ''
+            if school_id:
+                cursor.execute("SELECT name FROM schools WHERE id = %s", (school_id,))
+                school_result = cursor.fetchone()
+                if school_result:
+                    school_name = school_result[0]
+
             # SQL Query to insert new election
             insert_query = """
             INSERT INTO elections
@@ -766,7 +986,7 @@ def create_election():
             """
 
             cursor.execute(insert_query,
-                           (name, description, election_type, school, program, academic_year,
+                           (name, description, election_type, school_name, program, academic_year,
                             start_date, end_date, status, session['admin_id']))
             
             # Get the newly created election ID
@@ -792,14 +1012,29 @@ def create_election():
 
         except Error as e:
             flash(f'Database error: {str(e)}', 'error')
-            return render_template('create_election.html')
+            return render_template('create_election.html', 
+                                 schools=schools, 
+                                 programs=programs, 
+                                 academic_years=academic_years)
         finally:
             if connection.is_connected():
                 cursor.close()
                 connection.close()
 
     # GET request - show the create election form
-    return render_template('create_election.html')
+    return render_template('create_election.html',
+                         schools=schools,
+                         programs=programs,
+                         academic_years=academic_years)
+
+
+#Get programs by school in AJAX
+@app.route('/admin/get-programs/<int:school_id>')
+def get_programs_by_school(school_id):
+    """AJAX endpoint to get programs by school"""
+    programs = get_programs_from_db(school_id)
+    return json.dumps(programs)
+
 
 #Editing an election
 @app.route('/admin/elections/<int:election_id>/edit', methods=['GET', 'POST'])
@@ -810,6 +1045,11 @@ def edit_election(election_id):
     if 'admin_logged_in' not in session:
         flash('Please login as admin to access this page', 'error')
         return redirect(url_for('admin_login'))
+    
+     # Fetch data from database for the form
+    schools = get_schools_from_db()
+    programs = get_programs_from_db()
+    academic_years = get_academic_years_from_db()
 
     connection = create_connection()
     if connection is None:
@@ -819,12 +1059,34 @@ def edit_election(election_id):
     try:
         cursor = connection.cursor(dictionary=True)
 
+     # Fetch existing election data
+        cursor.execute("SELECT * FROM elections WHERE id = %s", (election_id,))
+        election = cursor.fetchone()
+
+        # Check if election exists
+        if not election:
+            flash('Election not found.', 'error')
+            return redirect(url_for('manage_elections'))
 
         #Handle form submission
         if request.method == 'POST':
             name = request.form['name']
             description = request.form['description']
             election_type = request.form['election_type']
+            school_id = request.form.get('school', '')
+             # Handle multiple program selection
+            program_selections = request.form.getlist('program')
+            if 'all' in program_selections:
+                program = 'all'
+            else:
+                program = json.dumps(program_selections) if program_selections else ''
+            
+            # Handle multiple academic year selection
+            academic_year_selections = request.form.getlist('academic_year')
+            if 'all' in academic_year_selections:
+                academic_year = 'all'
+            else:
+                academic_year = json.dumps(academic_year_selections) if academic_year_selections else ''
             start_date = request.form['start_date']
             end_date = request.form['end_date']
             status = request.form['status']
@@ -832,30 +1094,58 @@ def edit_election(election_id):
             #Validate required fields
             if not all([name, election_type, start_date, end_date]):
                 flash('Please fill in all required fields.', 'error')
-                return render_template('edit_election.html', election=election)
+                return render_template('edit_election.html', 
+                                     election=election, 
+                                     schools=schools, 
+                                     programs=programs, 
+                                     academic_years=academic_years)
+           
+            # Get school name if school_id is provided
+            school_name = ''
+            if school_id:
+                cursor.execute("SELECT name FROM schools WHERE id = %s", (school_id,))
+                school_result = cursor.fetchone()
+                if school_result:
+                    school_name = school_result['name']
 
             #SQL Query to update election
             update_query = """
-            UPDATE elections
-            SET name = %s, description = %s, election_type = %s,
-                start_date = %s, end_date = %s, status = %s
+             UPDATE elections
+            SET name = %s, description = %s, election_type = %s, school = %s,
+                program = %s, academic_year = %s, start_date = %s, end_date = %s, status = %s
             WHERE id = %s
             """
             cursor.execute(update_query,
-                           (name, description, election_type,
+                           (name, description, election_type, school_name, program, academic_year,
                             start_date, end_date, status, election_id))
             connection.commit()
-       # Fetchs existing election data
-        cursor.execute("SELECT * FROM elections WHERE id = %s", (election_id,))
-        election = cursor.fetchone()
+       
+        flash('Election updated successfully!', 'success')
+        return redirect(url_for('manage_elections'))
 
-   #Check if an election exists
-        if not election:
-            flash('Election not found.', 'error')
-            return redirect(url_for('manage_elections'))
+        # GET request - parse existing data for the for
+        if election['program'] and election['program'] != 'all':
+            try:
+                election['program_list'] = json.loads(election['program'])
+            except:
+                election['program_list'] = [election['program']]
+        else:
+            election['program_list'] = ['all'] if election['program'] == 'all' else []
+        
+        if election['academic_year'] and election['academic_year'] != 'all':
+            try:
+                election['academic_year_list'] = json.loads(election['academic_year'])
+            except:
+                election['academic_year_list'] = [election['academic_year']]
+        else:
+            election['academic_year_list'] = ['all'] if election['academic_year'] == 'all' else []
+        
+        return render_template('edit_election.html', 
+                             election=election, 
+                             schools=schools, 
+                             programs=programs, 
+                             academic_years=academic_years)
 
-    #GET request - show the edit election form with existing data
-            return render_template('edit_election.html', election=election)
     except Error as e:
         flash(f'Database error: {str(e)}', 'error')
         return redirect(url_for('manage_elections'))

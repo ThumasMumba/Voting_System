@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Election - CBU Voting System</title>
+    <style>
+      :root {
+        --primary-color: darkblue;
+        --secondary-color: gold;
+        --background-color: rgba(211, 211, 211, 0.411);
+        --text-color: darkgrey;
+        --success-color: green;
+        --warning-color: red;
+      }
+      
+      
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--background-color);
+        color: #333;
+        line-height: 1.6;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .header {
+        display: flex;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        justify-content: space-between;
+        padding: 15px;
+        align-items: center;
+        background-color: var(--secondary-color);
+        z-index: 1000;
+        flex-wrap: wrap;
+      }
+      
+      .header h1 {
+        color: var(--primary-color);
+        margin: 0;
+        font-size: 1.2rem;
+      }
+      
+      .admin-info {
+        color: var(--primary-color);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      
+      .user-data {
+        padding: 20px 15px;
+        margin-top: 80px;
+        min-height: calc(100vh - 80px);
+      }
+      
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        row-gap: 15px;
+        max-width: 100%;
+      }
+      
+      
+      .sideBar {
+        width: 100%;
+        background-color: white;
+        border-bottom: 1px solid rgba(211, 211, 211, 0.411);
+        padding: 15px 0;
+        position: fixed;
+        top: 80px;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      }
+      
+      .sideBar span {
+        display: block;
+        font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+        padding: 12px 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+        color: var(--primary-color);
+      }
+      
+      #side-dash {
+        font-weight: bold;
+        color: var(--primary-color);
+        border-left-color: var(--secondary-color);
+        background-color: rgba(211, 211, 211, 0.2);
+      }
+      
+      .user-input {
+        width: 100%;
+        max-width: 500px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        padding: 12px;
+        font-size: 16px; 
+        box-sizing: border-box;
+      }
+      
+      .user-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 5px var(--primary-color);
+      }
+      
+      .form-group {
+        margin-bottom: 20px;
+      }
+      
+      .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+      
+      
+      .checkbox-group {
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 10px;
+        background: white;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+      
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 5px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      
+      .checkbox-item:last-child {
+        border-bottom: none;
+      }
+      
+      .checkbox-item input[type="checkbox"] {
+        margin-right: 10px;
+        transform: scale(1.2);
+      }
+      
+      .checkbox-item label {
+        flex: 1;
+        cursor: pointer;
+      }
+      
+      .select-all {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+      
+      .my-btn {
+        margin-top: 30px;
+        text-align: center;
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      
+      .sub-btn, .reset-btn {
+        padding: 12px 25px;
+        border-radius: 50px;
+        cursor: pointer;
+        border: none;
+        font-family: "Roboto", sans-serif;
+        font-weight: 600;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        min-width: 120px;
+      }
+      
+      .sub-btn {
+        color: var(--primary-color);
+        background-color: var(--secondary-color);
+      }
+      
+      .reset-btn {
+        color: white;
+        background-color: var(--warning-color);
+      }
+      
+      .logout-btn {
+        background: var(--primary-color);
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+      
+      /* Flash messages */
+      .flash-messages {
+        margin-top: 160px;
+        padding: 10px;
+      }
+      
+      .flash-success {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #c3e6cb;
+      }
+      
+      .flash-error {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 5px;
+        border: 1px solid #f5c6cb;
+      }
+      
+      
+      @media (min-width: 768px) {
+        .sideBar {
+          width: 250px;
+          height: calc(100vh - 80px);
+          border-right: 1px solid rgba(211, 211, 211, 0.411);
+          border-bottom: none;
+        }
+        
+        .main-container {
+          margin-left: 270px;
+        }
+        
+        .flash-messages {
+          margin-left: 270px;
+          margin-top: 80px;
+        }
+        
+        .user-data {
+          margin-left: 0;
+        }
+        
+        .header h1 {
+          font-size: 1.5rem;
+        }
+      }
+      
+      
+      .loading {
+        opacity: 0.6;
+        pointer-events: none;
+      }
+      
+      .required::after {
+        content: " *";
+        color: red;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>Create Election</h1>
+      <div class="admin-info">
+        <span>Welcome, {{ session.get('admin_username', 'Admin') }}</span>
+        <a href="{{ url_for('admin_logout') }}" class="logout-btn">Logout</a>
+      </div>
+    </div>
+  
+    <div class="flash-messages">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+    
+    <nav class="sideBar">
+      <span id="side-dash" onclick="window.location.href='{{ url_for('manage_elections') }}'">⬅️ Back to Elections</span>
+    </nav>
+    
+    <form class="user-data" method="POST" action="{{ url_for('create_election') }}">
+      <div class="main-container">
+        
+        <div class="form-group">
+          <label for="name" class="form-label required">Election Name</label>
+          <input class="user-input" type="text" id="name" name="name" placeholder="Enter election name" required />
+        </div>
+        
+        <div class="form-group">
+          <label for="description" class="form-label">Description</label>
+          <textarea class="user-input" id="description" name="description" placeholder="Enter election description" rows="3"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="election_type" class="form-label required">Election Type</label>
+          <select class="user-input" id="election_type" name="election_type" required>
+            <option value="">Select Election Type</option>
+            <option value="Student Union">Student Union</option>
+            <option value="Class Representative">Class Representative</option>
+            <option value="Association">Association</option>
+          </select>
+        </div>
+  
+        <div class="form-group">
+          <label for="school" class="form-label">School</label>
+          <select class="user-input" id="school" name="school">
+            <option value="">Select School (Optional)</option>
+            {% for school in schools %}
+            <option value="{{ school.id }}">{{ school.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+  
+        <div class="form-group">
+          <label class="form-label required">Programs</label>
+          <div class="checkbox-group" id="programs-checkbox-group">
+            <div class="select-all checkbox-item">
+              <input type="checkbox" id="select-all-programs" name="program" value="all">
+              <label for="select-all-programs">All Programs</label>
+            </div>
+            {% for program in programs %}
+            <div class="checkbox-item">
+              <input type="checkbox" id="program-{{ program.id }}" name="program" value="{{ program.id }}" data-school="{{ program.school_name }}">
+              <label for="program-{{ program.id }}">{{ program.name }} ({{ program.school_name }})</label>
+            </div>
+            {% endfor %}
+          </div>
+          <small>Select "All Programs" or individual programs</small>
+        </div>
+  
+        <div class="form-group">
+          <label class="form-label required">Academic Years</label>
+          <div class="checkbox-group" id="years-checkbox-group">
+            <div class="select-all checkbox-item">
+              <input type="checkbox" id="select-all-years" name="academic_year" value="all">
+              <label for="select-all-years">All Years</label>
+            </div>
+            {% for year in academic_years %}
+            <div class="checkbox-item">
+              <input type="checkbox" id="year-{{ year.id }}" name="academic_year" value="{{ year.id }}">
+              <label for="year-{{ year.id }}">{{ year.name }}</label>
+            </div>
+            {% endfor %}
+          </div>
+          <small>Select "All Years" or individual years</small>
+        </div>
+        
+        <div class="form-group">
+          <label for="start_date" class="form-label required">Start Date & Time</label>
+          <input class="user-input" type="datetime-local" id="start_date" name="start_date" required />
+        </div>
+        
+        <div class="form-group">
+          <label for="end_date" class="form-label required">End Date & Time</label>
+          <input class="user-input" type="datetime-local" id="end_date" name="end_date" required />
+        </div>
+        
+        <div class="form-group">
+          <label for="status" class="form-label required">Status</label>
+          <select class="user-input" id="status" name="status" required>
+            <option value="draft">Draft</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        
+        <div class="my-btn">
+          <button class="reset-btn" type="button" onclick="window.location.href='{{ url_for('manage_elections') }}'">Cancel</button>
+          <button class="sub-btn" type="submit">Create Election</button>
+        </div>
+        
+      </div>
+    </form>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const schoolSelect = document.getElementById('school');
+        const selectAllPrograms = document.getElementById('select-all-programs');
+        const selectAllYears = document.getElementById('select-all-years');
+        
+          selectAllPrograms.addEventListener('change', function() {
+          const programCheckboxes = document.querySelectorAll('input[name="program"]:not(#select-all-programs)');
+          programCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+            checkbox.disabled = this.checked;
+          });
+        });
+        
+          selectAllYears.addEventListener('change', function() {
+          const yearCheckboxes = document.querySelectorAll('input[name="academic_year"]:not(#select-all-years)');
+          yearCheckboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+            checkbox.disabled = this.checked;
+          });
+        });
+  
+        document.querySelectorAll('input[name="program"]:not(#select-all-programs)').forEach(checkbox => {
+          checkbox.addEventListener('change', function() {
+            if (this.checked) {
+              selectAllPrograms.checked = false;
+            }
+          });
+        });
+  
+        document.querySelectorAll('input[name="academic_year"]:not(#select-all-years)').forEach(checkbox => {
+          checkbox.addEventListener('change', function() {
+            if (this.checked) {
+              selectAllYears.checked = false;
+            }
+          });
+        });
+  
+        schoolSelect.addEventListener('change', function() {
+          const schoolId = this.value;
+          const programsContainer = document.getElementById('programs-checkbox-group');
+          
+          if (schoolId) {
+            programsContainer.classList.add('loading');
+            
+            fetch(`/admin/get-programs/${schoolId}`)
+              .then(response => response.json())
+              .then(programs => {
+  
+                const existingPrograms = document.querySelectorAll('input[name="program"]:not(#select-all-programs)');
+                existingPrograms.forEach(checkbox => checkbox.closest('.checkbox-item').remove());
+                
+                  programs.forEach(program => {
+                  const checkboxItem = document.createElement('div');
+                  checkboxItem.className = 'checkbox-item';
+                  checkboxItem.innerHTML = `
+                    <input type="checkbox" id="program-${program.id}" name="program" value="${program.id}" data-school="${program.school_name}">
+                    <label for="program-${program.id}">${program.name} (${program.school_name})</label>
+                  `;
+                  programsContainer.appendChild(checkboxItem);
+                  
+                    checkboxItem.querySelector('input').addEventListener('change', function() {
+                    if (this.checked) {
+                      selectAllPrograms.checked = false;
+                    }
+                  });
+                });
+                
+                programsContainer.classList.remove('loading');
+              })
+              .catch(error => {
+                console.error('Error fetching programs:', error);
+                programsContainer.classList.remove('loading');
+              });
+          } else {
+              window.location.reload();
+          }
+        });
+        
+        form.addEventListener('submit', function(e) {
+           const startDate = new Date(document.getElementById('start_date').value);
+          const endDate = new Date(document.getElementById('end_date').value);
+          
+          if (endDate <= startDate) {
+            e.preventDefault();
+            alert('End date must be after start date.');
+            return false;
+          }
+          
+        
+          const selectedPrograms = Array.from(document.querySelectorAll('input[name="program"]:checked')).map(cb => cb.value);
+          const selectedYears = Array.from(document.querySelectorAll('input[name="academic_year"]:checked')).map(cb => cb.value);
+          
+          if (selectedPrograms.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one program or "All Programs".');
+            return false;
+          }
+          
+          if (selectedYears.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one academic year or "All Years".');
+            return false;
+          }
+        });
+        
+        
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('start_date').min = now.toISOString().slice(0, 16);
+        document.getElementById('end_date').min = now.toISOString().slice(0, 16);
+      });
+    </script>
+  </body>
+</html>
