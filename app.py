@@ -56,6 +56,7 @@ def init_database():
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
             date_of_birth VARCHAR(20) NOT NULL,
+            school_id INT,  
             program VARCHAR(100) NOT NULL,
             academic_year VARCHAR(20) NOT NULL,
             student_number VARCHAR(50) UNIQUE NOT NULL,
@@ -385,7 +386,7 @@ def get_academic_years_from_db():
     
     try:
         cursor = connection.cursor(dictionary=True)
-        cursor.execute("SELECT id, name, code FROM academic_years WHERE is_active = TRUE ORDER BY name")
+        cursor.execute("SELECT id, name, code FROM academic_years WHERE is_active = TRUE ORDER BY code")
         academic_years = cursor.fetchall()
         print(f"✅ Found {len(academic_years)} academic years: {academic_years}")
         return academic_years
@@ -396,6 +397,454 @@ def get_academic_years_from_db():
         if connection.is_connected():
             cursor.close()
             connection.close()
+
+# Candidates Management Routes
+@app.route('/admin/candidates')
+def manage_candidates():
+    """
+    Display all candidates with filtering capabilities
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page.', 'error')
+        return redirect(url_for('admin_login'))
+    
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        # Get filter parameters
+        election_filter = request.args.get('election', 'all')
+        status_filter = request.args.get('status', 'all')
+        search_query = request.args.get('search', '')
+
+        # Base query for candidates
+        query = """
+        SELECT c.*, 
+               e.name as election_name,
+               e.election_type,
+               v.first_name, 
+               v.last_name,
+               v.program,
+               v.academic_year,
+               v.date_of_birth,
+               v.nrc,
+               v.gender,
+               v.email
+        FROM candidates c
+        LEFT JOIN elections e ON c.election_id = e.id
+        LEFT JOIN voters v ON c.student_number = v.student_number
+        """
+
+        # Build WHERE conditions based on filters
+        conditions = []
+        params = []
+
+        # Election filter condition
+        if election_filter != 'all':
+            conditions.append("c.election_id = %s")
+            params.append(election_filter)
+
+        # Status filter condition
+        if status_filter != 'all':
+            conditions.append("c.is_approved = %s")
+            params.append(1 if status_filter == 'approved' else 0)
+
+        # Search conditions
+        if search_query:
+            conditions.append("(v.first_name LIKE %s OR v.last_name LIKE %s OR v.student_number LIKE %s OR c.position LIKE %s)")
+            params.extend([f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'])
+
+        # WHERE clause if any conditions are there
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        query += " ORDER BY c.created_at DESC"
+        
+        cursor.execute(query, tuple(params))
+        candidates = cursor.fetchall()
+
+        # Get all elections for filter dropdown
+        cursor.execute("SELECT id, name FROM elections ORDER BY name")
+        elections = cursor.fetchall()
+
+        # Get statistics
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_candidates,
+                SUM(CASE WHEN is_approved = TRUE THEN 1 ELSE 0 END) as approved_candidates,
+                SUM(CASE WHEN is_approved = FALSE THEN 1 ELSE 0 END) as pending_candidates
+            FROM candidates
+        """)
+        stats = cursor.fetchone()
+
+        return render_template('manage_candidates.html', 
+                               candidates=candidates,
+                               elections=elections,
+                               stats=stats,
+                               current_election=election_filter,
+                               current_status=status_filter,
+                               search_query=search_query)
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+        return redirect(url_for('admin_dashboard'))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/admin/candidates/create', methods=['GET', 'POST'])
+def create_candidate():
+    """
+    Create a new candidate
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+    
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_candidates'))
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        # Get elections for dropdown
+        cursor.execute("SELECT id, name, election_type FROM elections ORDER BY name")
+        elections = cursor.fetchall()
+
+        # Get positions for selected election (will be populated via AJAX)
+        positions = []
+
+        if request.method == 'POST':
+            # Get form data
+            election_id = request.form['election_id']
+            student_number = request.form['student_number']
+            position = request.form['position']
+            manifesto = request.form.get('manifesto', '')
+            
+            # Validate required fields
+            if not all([election_id, student_number, position]):
+                flash('Please fill in all required fields.', 'error')
+                return render_template('create_candidate.html', 
+                                     elections=elections, 
+                                     positions=positions)
+
+            # Check if student exists
+            cursor.execute("SELECT * FROM voters WHERE student_number = %s", (student_number,))
+            student = cursor.fetchone()
+
+            if not student:
+                flash('No student found with that student number.', 'error')
+                return render_template('create_candidate.html', 
+                                     elections=elections, 
+                                     positions=positions)
+
+            # Check if candidate already exists for this election and position
+            cursor.execute("""
+                SELECT id FROM candidates 
+                WHERE election_id = %s AND student_number = %s
+            """, (election_id, student_number))
+            existing_candidate = cursor.fetchone()
+
+            if existing_candidate:
+                flash('This student is already a candidate in this election.', 'error')
+                return render_template('create_candidate.html', 
+                                     elections=elections, 
+                                     positions=positions)
+
+            # Handle file upload
+            photo_url = ''
+            if 'photo' in request.files:
+                photo = request.files['photo']
+                if photo and photo.filename != '':
+                    # Secure filename and save
+                    import os
+                    from werkzeug.utils import secure_filename
+                    
+                    # Create uploads directory if it doesn't exist
+                    upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'candidates')
+                    os.makedirs(upload_dir, exist_ok=True)
+                    
+                    # Generate unique filename
+                    filename = secure_filename(f"{student_number}_{photo.filename}")
+                    photo_path = os.path.join(upload_dir, filename)
+                    photo.save(photo_path)
+                    
+                    # Store relative path for web access
+                    photo_url = f"uploads/candidates/{filename}"
+
+            # Insert candidate into database
+            insert_query = """
+            INSERT INTO candidates (election_id, student_number, position, manifesto, photo_url, is_approved)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            cursor.execute(insert_query, 
+                         (election_id, student_number, position, manifesto, photo_url, True))
+            
+            connection.commit()
+            flash('Candidate created successfully!', 'success')
+            return redirect(url_for('manage_candidates'))
+
+        # GET request - show the form
+        return render_template('create_candidate.html', 
+                             elections=elections, 
+                             positions=positions)
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+        return redirect(url_for('manage_candidates'))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/admin/get-positions/<int:election_id>')
+def get_positions_by_election(election_id):
+    """
+    AJAX endpoint to get positions for a specific election
+    """
+    connection = create_connection()
+    if connection is None:
+        return json.dumps([])
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT id, position_name FROM positions WHERE election_id = %s ORDER BY position_name", (election_id,))
+        positions = cursor.fetchall()
+        return json.dumps(positions)
+    except Error as e:
+        print(f"Error fetching positions: {e}")
+        return json.dumps([])
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/admin/get-student/<student_number>')
+def get_student_info(student_number):
+    """
+    AJAX endpoint to get student information by student number
+    """
+    connection = create_connection()
+    if connection is None:
+        return json.dumps({})
+    
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT first_name, last_name, program, academic_year, date_of_birth, nrc, gender, email
+            FROM voters WHERE student_number = %s
+        """, (student_number,))
+        student = cursor.fetchone()
+        return json.dumps(student if student else {})
+    except Error as e:
+        print(f"Error fetching student: {e}")
+        return json.dumps({})
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/admin/candidates/<int:candidate_id>/toggle_approval', methods=['POST'])
+def toggle_candidate_approval(candidate_id):
+    """
+    Toggle candidate approval status
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_candidates'))
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        # Check if candidate exists
+        cursor.execute("SELECT id, is_approved FROM candidates WHERE id = %s", (candidate_id,))
+        candidate = cursor.fetchone()
+
+        if not candidate:
+            flash('Candidate not found.', 'error')
+            return redirect(url_for('manage_candidates'))
+
+        # Toggle approval status
+        new_status = not candidate['is_approved']
+        update_query = "UPDATE candidates SET is_approved = %s WHERE id = %s"
+        cursor.execute(update_query, (new_status, candidate_id))
+        connection.commit()
+
+        status_text = "approved" if new_status else "pending"
+        flash(f'Candidate status updated to {status_text}.', 'success')
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+    return redirect(url_for('manage_candidates'))
+
+@app.route('/admin/candidates/<int:candidate_id>/delete', methods=['POST'])
+def delete_candidate(candidate_id):
+    """
+    Delete a candidate
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_candidates'))
+
+    try:
+        cursor = connection.cursor()
+
+        # Check if candidate exists
+        cursor.execute("SELECT id FROM candidates WHERE id = %s", (candidate_id,))
+        candidate = cursor.fetchone()
+
+        if not candidate:
+            flash('Candidate not found.', 'error')
+            return redirect(url_for('manage_candidates'))
+
+        # Delete candidate
+        delete_query = "DELETE FROM candidates WHERE id = %s"
+        cursor.execute(delete_query, (candidate_id,))
+        connection.commit()
+
+        flash('Candidate deleted successfully!', 'success')
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+    return redirect(url_for('manage_candidates'))
+
+@app.route('/admin/candidates/<int:candidate_id>/edit', methods=['GET', 'POST'])
+def edit_candidate(candidate_id):
+    """
+    Edit an existing candidate
+    """
+    if 'admin_logged_in' not in session:
+        flash('Please login as admin to access this page', 'error')
+        return redirect(url_for('admin_login'))
+
+    connection = create_connection()
+    if connection is None:
+        flash('Database connection error. Please try again later.', 'error')
+        return redirect(url_for('manage_candidates'))
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+
+        # Get candidate data
+        cursor.execute("""
+            SELECT c.*, 
+                   e.name as election_name,
+                   v.first_name, 
+                   v.last_name,
+                   v.program,
+                   v.academic_year,
+                   v.date_of_birth,
+                   v.nrc,
+                   v.gender,
+                   v.email
+            FROM candidates c
+            LEFT JOIN elections e ON c.election_id = e.id
+            LEFT JOIN voters v ON c.student_number = v.student_number
+            WHERE c.id = %s
+        """, (candidate_id,))
+        candidate = cursor.fetchone()
+
+        if not candidate:
+            flash('Candidate not found.', 'error')
+            return redirect(url_for('manage_candidates'))
+
+        # Get elections and positions
+        cursor.execute("SELECT id, name FROM elections ORDER BY name")
+        elections = cursor.fetchall()
+
+        cursor.execute("SELECT id, position_name FROM positions WHERE election_id = %s ORDER BY position_name", (candidate['election_id'],))
+        positions = cursor.fetchall()
+
+        if request.method == 'POST':
+            # Get form data
+            election_id = request.form['election_id']
+            position = request.form['position']
+            manifesto = request.form.get('manifesto', '')
+            is_approved = 'is_approved' in request.form
+
+            # Validate required fields
+            if not all([election_id, position]):
+                flash('Please fill in all required fields.', 'error')
+                return render_template('edit_candidate.html', 
+                                     candidate=candidate,
+                                     elections=elections,
+                                     positions=positions)
+
+            # Handle file upload
+            photo_url = candidate['photo_url']
+            if 'photo' in request.files:
+                photo = request.files['photo']
+                if photo and photo.filename != '':
+                    # Secure filename and save
+                    import os
+                    from werkzeug.utils import secure_filename
+                    
+                    # Create uploads directory if it doesn't exist
+                    upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'candidates')
+                    os.makedirs(upload_dir, exist_ok=True)
+                    
+                    # Generate unique filename
+                    filename = secure_filename(f"{candidate['student_number']}_{photo.filename}")
+                    photo_path = os.path.join(upload_dir, filename)
+                    photo.save(photo_path)
+                    
+                    # Store relative path for web access
+                    photo_url = f"uploads/candidates/{filename}"
+
+            # Update candidate
+            update_query = """
+            UPDATE candidates 
+            SET election_id = %s, position = %s, manifesto = %s, photo_url = %s, is_approved = %s
+            WHERE id = %s
+            """
+            cursor.execute(update_query, 
+                         (election_id, position, manifesto, photo_url, is_approved, candidate_id))
+            
+            connection.commit()
+            flash('Candidate updated successfully!', 'success')
+            return redirect(url_for('manage_candidates'))
+
+        # GET request - show the form
+        return render_template('edit_candidate.html', 
+                             candidate=candidate,
+                             elections=elections,
+                             positions=positions)
+
+    except Error as e:
+        flash(f'Database error: {str(e)}', 'error')
+        return redirect(url_for('manage_candidates'))
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
 
 # Login Route
 @app.route('/login', methods=['GET', 'POST'])
@@ -498,11 +947,22 @@ def register():
     POST: Processes the form submission and saves it to the database
     """
 
+     # For GET requests, show the registration form with schools and academic years
+    if request.method == 'GET':
+        # Fetch schools and academic years from database
+        schools = get_schools_from_db()
+        academic_years = get_academic_years_from_db()
+        
+        return render_template('register.html', 
+                              schools=schools, 
+                              academic_years=academic_years)
+
     #check if the form submission is a POST Request
     if request.method == 'POST':
         first_name = request.form['first_name']
         last_name = request.form['last_name']
         date_of_birth = request.form['date_of_birth']
+        school_id = request.form['school']
         program = request.form['program']
         student_number = request.form['student_number']
         academic_year = request.form['academic_year']
@@ -542,14 +1002,14 @@ def register():
             #SQL Query  to insert new voter into the database
             insert_query = """
                 INSERT INTO voters
-                (first_name, last_name, date_of_birth, program, academic_year, student_number,
+                (first_name, last_name, date_of_birth, school_id, program, academic_year, student_number,
                 nrc, gender, email, phone_number, address_type) VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """
 
             #Excetion of the insert query
             cursor.execute(insert_query, 
-               (first_name, last_name, date_of_birth, program, academic_year,
+               (first_name, last_name, date_of_birth, school_id, program, academic_year,
                 student_number, nrc, gender, email, phone_number, address_type))
             
             connection.commit()
@@ -566,8 +1026,12 @@ def register():
 
         return redirect(url_for('register'))    
     
-    # For GET requests, show the registration form
-    return render_template('register.html')
+   # This route fetches programs by school
+@app.route('/get-programs/<int:school_id>')
+def get_programs(school_id):
+    """AJAX endpoint to get programs by school"""
+    programs = get_programs_from_db(school_id)
+    return json.dumps(programs)
 
 #Admin dashboard Route    
 @app.route('/admin/dashboard')
