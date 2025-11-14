@@ -9,29 +9,65 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 #importing mysql.connector and Error to connect and handle MySQL database operations
 import mysql.connector
 import json
+import os
 from mysql.connector import Error 
 from datetime import datetime
+from urllib.parse import urlparse
 
 #Creating an instance of the flask class to initialize the system. Also a secret string used to encrypt session data and flash messages
 app = Flask(__name__)
-app.secret_key = 'cbu_voting_system'
+app.secret_key = os.environ.get('SECRET_KEY', 'cbu_voting_system_dev_fallback')
 
 # Add this configuration to ensure HTML files process Jinja2 syntax
 app.jinja_env.add_extension('jinja2.ext.do')
 
 #This connects to the MySQL database using the provided configuration details
-db_config = {
-    'host': 'localhost',
-    'user': 'root',
-    'password': '',
-    'database': 'voting_system_db' 
-}
+def get_db_config():
+    """Get database configuration from Railway environment variables"""
+    # Try multiple possible database URL variables
+    db_url_str = (
+        os.environ.get('MYSQL_URL') or 
+        os.environ.get('DATABASE_URL')
+    )
+    
+    if db_url_str:
+        db_url = urlparse(db_url_str)
+        return {
+            'host': db_url.hostname,
+            'user': db_url.username,
+            'password': db_url.password,
+            'database': db_url.path[1:],
+            'port': db_url.port
+        }
+    else:
+        # Try individual MySQL variables
+        if all(key in os.environ for key in ['MYSQLHOST', 'MYSQLUSER', 'MYSQLPASSWORD', 'MYSQLDATABASE']):
+            return {
+                'host': os.environ['MYSQLHOST'],
+                'user': os.environ['MYSQLUSER'],
+                'password': os.environ['MYSQLPASSWORD'],
+                'database': os.environ['MYSQLDATABASE'],
+                'port': int(os.environ.get('MYSQLPORT', '3306'))
+            }
+        else:
+            # Local development fallback
+            return {
+                'host': 'localhost',
+                'user': 'root',
+                'password': '',
+                'database': 'voting_system_db'
+            }
+
+# Use the function to get db_config
+db_config = get_db_config()
 
 #A function that defines the database connections and uses exception handling to manage connection errors
 def create_connection():
     """Create and return a database Connection."""
-    try: 
-        connection = mysql.connector.connect(**db_config)
+    try:
+        # Get fresh config each time (in case env vars change)
+        current_config = get_db_config()
+        connection = mysql.connector.connect(**current_config)
         return connection
     except Error as e:
         print(f"Error Connecting to MySQL Database: {e}")
@@ -1758,3 +1794,13 @@ def manage_positions(election_id):
 
 if  __name__ == '__main__':
     app.run(debug=True)
+
+# For Railway production deployment
+if __name__ == '__main__':
+    # Check if we're in production (Railway sets PORT environment variable)
+    if os.environ.get('RAILWAY_ENV') or os.environ.get('PORT'):
+        # Railway will use gunicorn, so no need to run app directly
+        pass
+    else:
+        # Local development
+        app.run(debug=True)

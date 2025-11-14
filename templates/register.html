@@ -19,6 +19,36 @@
         --text-color: darkgrey;
         --success-color: green;
         --warning-color: red;
+        --footer-height: 80px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html, body {
+        height: 100%;
+      }
+
+      body {
+        background-color: var(--background-color);
+        font-family: "Roboto", sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .main-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        width: 100%;
       }
 
       .user-input, .user-select {
@@ -86,6 +116,38 @@
         transition: all 0.3s ease;
       }
 
+      /* Fixed Footer Styles */
+      .footer {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 15px 20px;
+        text-align: center;
+        height: var(--footer-height);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        margin-top: auto;
+        flex-shrink: 0;
+      }
+
+      .footer-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .footer p {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
+      .footer-creators {
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+
       .reset-btn:hover {
         background-color: var(--warning-color);
         transform: translateY(-2px);
@@ -134,22 +196,6 @@
         padding-bottom: 5px;
       }
 
-      .body {
-        background-color: var(--background-color);
-        font-family: "Roboto", sans-serif;
-        margin: 0;
-        padding: 20px;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .tick {
-        width: 400px;
-        max-width: 400px;
-      }
-
       .container {
         background-color: white;
         width: 100%;
@@ -158,6 +204,7 @@
         padding: 30px;
         border-radius: 12px;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
       }
 
       .alert{
@@ -217,6 +264,10 @@
       }
 
        @media (max-width: 768px) {
+        .main-content {
+          padding: 10px;
+        }
+
         .container {
           padding: 20px;
           margin: 10px;
@@ -252,9 +303,19 @@
         }
       }
 
+      @media (max-width: 640px){
+        .footer {
+          padding: 10px 15px;
+        }
+
+        .footer-content {
+          gap: 3px;
+        }
+      }
+
        @media (max-width: 480px) {
-        .body {
-          padding: 10px;
+        .main-content {
+          padding: 5px;
         }
         
         .container {
@@ -264,6 +325,14 @@
         .header {
           font-size: 1.5rem;
         }
+
+        .footer p {
+          font-size: 0.8rem;
+        }
+
+        .footer-creators {
+          font-size: 0.75rem;
+        }
         
         .my-header {
           font-size: 1.2rem;
@@ -272,120 +341,129 @@
 
     </style>
   </head>
-  <body class="body">
-    <div class="container">
-    <h1 class="header">Voter Registration</h1>
-    
+  <body>
+    <div class="main-content">
+      <div class="container">
+        <h1 class="header">Voter Registration</h1>
+        
 
-    <!--Flash Messages appear here-->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-    {% for category, message in messages %}
-        <div class="alert alert-{{ category }}">{{ message }}</div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
+        <!--Flash Messages appear here-->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
 
-    <h2 class="my-header">Personal information</h2>
-    <form id="myform" method="POST">
-    <div class="form-row">
-    <div class="form-field">
-      <label for="fname"></label>
-        <input class="user-input" type="text" name="first_name" placeholder="First Name" required/>
-    </div>
-    <div class="form-field">  
-      <label for="lname"></label>
-        <input class="user-input" type="text" name="last_name" placeholder="Last Name" required />
-    </div>
-    </div>
-
-    <div class="form-row">
-    <div class="form-field">  
-      <label for="dob"></label>
-        <input class="user-input" type="text" name="date_of_birth" placeholder="Date of Birth" required />
-        <div class="input-hints">
-          Select Your Date of birth from the calendar
+        <h2 class="my-header">Personal information</h2>
+        <form id="myform" method="POST">
+        <div class="form-row">
+        <div class="form-field">
+          <label for="fname"></label>
+            <input class="user-input" type="text" name="first_name" placeholder="First Name" required/>
         </div>
-    </div>
-    <div class="form-field">
-       <label for="school"></label>
-          <select class="user-select" id="school" name="school" required>
-            <option value="">Select Your School</option>
-            {% for school in schools %}
-            <option value="{{ school.id }}">{{ school.name }}</option>
-            {% endfor %}
-          </select>
+        <div class="form-field">  
+          <label for="lname"></label>
+            <input class="user-input" type="text" name="last_name" placeholder="Last Name" required />
         </div>
-      </div>
-
-      <div class="form-row">
-      <div class="form-field">
-      <label for="prog"></label>
-        <select class="user-input" id="program" name="program" required>
-          <option value="">Select Your Program</option>
-        </select>
-      </div>
-      <div class="form-field">
-         <label for="academic_year"></label>
-          <select class="user-select" name="academic_year" required>
-            <option value="">Select Academic Year</option>
-            {% for year in academic_years %}
-            <option value="{{ year.name }}">{{ year.name }}</option>
-            {% endfor %}
-          </select>
         </div>
-      </div>
 
-      <div class="form-row">
-      <div class="form-field">
-      <label for="SIN"></label>
-        <input class="user-input" type="text" name="student_number" placeholder="Student Number" pattern="[0-9]{8}" title="Student Number Must be exactly 8 digits" required/>
-          <div class="input-hints">
-            Must be exactly 8 digits long
+        <div class="form-row">
+        <div class="form-field">  
+          <label for="dob"></label>
+            <input class="user-input" type="text" name="date_of_birth" placeholder="Date of Birth" required />
+            <div class="input-hints">
+              Select Your Date of birth from the calendar
+            </div>
+        </div>
+        <div class="form-field">
+           <label for="school"></label>
+              <select class="user-select" id="school" name="school" required>
+                <option value="">Select Your School</option>
+                {% for school in schools %}
+                <option value="{{ school.id }}">{{ school.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
           </div>
+
+          <div class="form-row">
+          <div class="form-field">
+          <label for="prog"></label>
+            <select class="user-input" id="program" name="program" required>
+              <option value="">Select Your Program</option>
+            </select>
+          </div>
+          <div class="form-field">
+             <label for="academic_year"></label>
+              <select class="user-select" name="academic_year" required>
+                <option value="">Select Academic Year</option>
+                {% for year in academic_years %}
+                <option value="{{ year.name }}">{{ year.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+          <div class="form-field">
+          <label for="SIN"></label>
+            <input class="user-input" type="text" name="student_number" placeholder="Student Number" pattern="[0-9]{8}" title="Student Number Must be exactly 8 digits" required/>
+              <div class="input-hints">
+                Must be exactly 8 digits long
+              </div>
+          </div>
+          <div class="form-field">
+          <label for="nrc"></label>
+            <input class="user-input" type="text" name="nrc" placeholder="NRC e.g 123456/78/9" pattern="[0-9]{6}/[0-9]{2}/[0-9]{1}" title="NRC Must be in format: 123456/78/9" />
+              <div class="input-hints">Format: 123456/78/9(6 digits/ 2 digits/ 1 digit)</div>
+          </div>
+          </div>
+          
+          <h3 class="my-header">Gender</h3>
+          <div class="tick">
+            <label>
+              <input type="radio" name="gender" value="Female" required/>
+              <span class="radio-txt">Female</span></label>
+            <label>
+              <input type="radio" name="gender" value="Male" required/>
+              <span class="radio-txt">Male</span></label>
+          </div>
+          <h4 class="my-header">Contact information</h4>
+          <div class="form-row">
+          <div class="form-field">
+          <label for="e-mail"></label>
+            <input class="user-input" type="email" name="email" placeholder="Email Address" required/>
+          </div>
+          <div class="form-field">  
+          <label for="phone"></label>
+            <input class="user-input" type="tel" name="phone_number" placeholder="Phone Number" required />
+          </div>
+          </div>  
+          <h5 class="my-header">Address</h5>
+            <div class="tick">
+             <label>
+              <input type="radio" name="address_type" value="Campus" /><span class="radio-txt">Campus</span>
+            </label>
+            <label>
+              <input type="radio" name="address_type" value="Off-Campus" /><span class="radio-txt"  >Off-Campus</span>
+            </label>
+          </div>
+          <div class="my-btn">
+            <button class="sub-btn" type="submit">Submit</button>
+            <button class="reset-btn" type="reset">Clear</button>
+          </div>
+        </form>
       </div>
-      <div class="form-field">
-      <label for="nrc"></label>
-        <input class="user-input" type="text" name="nrc" placeholder="NRC e.g 123456/78/9" pattern="[0-9]{6}/[0-9]{2}/[0-9]{1}" title="NRC Must be in format: 123456/78/9" />
-          <div class="input-hints">Format: 123456/78/9(6 digits/ 2 digits/ 1 digit)</div>
-      </div>
-      </div>
-      
-      <h3 class="my-header">Gender</h3>
-      <div class="tick">
-        <label>
-          <input type="radio" name="gender" value="Female" required/>
-          <span class="radio-txt">Female</span></label>
-        <label>
-          <input type="radio" name="gender" value="Male" required/>
-          <span class="radio-txt">Male</span></label>
-      </div>
-      <h4 class="my-header">Contact information</h4>
-      <div class="form-row">
-      <div class="form-field">
-      <label for="e-mail"></label>
-        <input class="user-input" type="email" name="email" placeholder="Email Address" required/>
-      </div>
-      <div class="form-field">  
-      <label for="phone"></label>
-        <input class="user-input" type="tel" name="phone_number" placeholder="Phone Number" required />
-      </div>
-      </div>  
-      <h5 class="my-header">Address</h5>
-        <div class="tick">
-         <label>
-          <input type="radio" name="address_type" value="Campus" /><span class="radio-txt">Campus</span>
-        </label>
-        <label>
-          <input type="radio" name="address_type" value="Off-Campus" /><span class="radio-txt"  >Off-Campus</span>
-        </label>
-      </div>
-      <div class="my-btn">
-        <button class="sub-btn" type="submit">Submit</button>
-        <button class="reset-btn" type="reset">Clear</button>
-      </div>
-    </form>
     </div>
+
+    <footer class="footer">
+      <div class="footer-content">
+        <p>&copy; 2025 Election System. All rights reserved.</p>
+        <p class="footer-creators">Created by Thumas Mumba and Newton Katete</p>
+      </div>
+    </footer>
 
     <script>
       document.getElementById("myform").addEventListener("submit", function(e){
